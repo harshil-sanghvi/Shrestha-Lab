@@ -4,6 +4,7 @@ import numpy as np
 from pandas import ExcelWriter
 import warnings
 from tqdm import tqdm
+import argparse
 
 warnings.filterwarnings("ignore")
 
@@ -77,8 +78,8 @@ def process_gs_data(GS_DIR_PATH):
 
 def add_animal_details(data_df, exp_df, ct):
     """Add animal details from exp_df to data_df based on common identifiers."""
-    na_mask = exp_df['SN'].isna() | exp_df['SN'].isnull()
-    start_index = exp_df[~na_mask & exp_df['SN'].str.endswith(ct)].index[0]
+    na_mask = exp_df['SN'].isna() | exp_df['SN'].isnull() # Check for NaN values in SN column
+    start_index = exp_df[~na_mask & exp_df['SN'].str.contains(ct)].index[0] # Get the index of the first non-NaN value in SN column
 
     next_index_with_nan = None
     for index in range(start_index + 1, len(exp_df)):
@@ -121,17 +122,21 @@ def process_and_save_data(PATH, exp_df, ct, add_animal_info=True):
 
     writer.close()
 
-PATH = r'path/to/data' # Path to the data folder
-EXP_DETAILS_PATH = r'path/to/details.xlsx' # Path to the Excel file containing experiment details
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="Process data from subfolders in a folder and save to Excel.")
+    parser.add_argument("--path", help="Path to the data folder", type=str, required=True)
+    parser.add_argument("--exp_details_path", help="Path to the Excel file containing experiment details", type=str, required=True)
+    args = parser.parse_args()
 
-exp_df = pd.read_excel(EXP_DETAILS_PATH, usecols=[0, 1, 2, 3, 4])
-exp_df.columns = ['SN', 'Animal', 'Sex', 'Subject ID', 'Group ']
+    print(args.path, args.exp_details_path)
+    exp_df = pd.read_excel(args.exp_details_path, usecols=[0, 1, 2, 3, 4])
+    exp_df.columns = ['SN', 'Animal', 'Sex', 'Subject ID', 'Group ']
 
-for subfolder in tqdm(sorted(os.listdir(PATH)), desc="Processing subfolders", unit="folder"):
-    ct = subfolder.split()[-1]
-    GS_DIR_PATH = os.path.join(PATH, subfolder)
-    try:
-        if os.path.isdir(GS_DIR_PATH):
-            process_and_save_data(GS_DIR_PATH, exp_df, ct)
-    except Exception as e:
-        print(f"Error processing {GS_DIR_PATH}: {e}")
+    for subfolder in tqdm(sorted(os.listdir(args.path)), desc="Processing subfolders", unit="folder"):
+        ct = subfolder.split()[-2]
+        GS_DIR_PATH = os.path.join(args.path, subfolder)
+        try:
+            if os.path.isdir(GS_DIR_PATH):
+                process_and_save_data(GS_DIR_PATH, exp_df, ct)
+        except Exception as e:
+            print(f"Error processing {GS_DIR_PATH}: {e}")
