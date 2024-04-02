@@ -55,12 +55,12 @@ def process_file(file_path, total_trials, col):
         n_shuttl_per_ten_min_cs = round((av_count/total_cs_duration[0]) * 600, 2)
         n_shuttl_per_ten_min_non_cs = round((entry_count_non_cs/(total_duration - total_cs_duration[0])) * 600, 2)
         
-        animal_id = os.path.basename(file_path).split('_')[-1].split('.')[0]
-        
+        animal_id = os.path.basename(file_path).split('_')[-1].split('.')[0].split()[-1]
+
         temp_df = pd.DataFrame(np.reshape([animal_id, av_count, esc_count, fail_count, av_perc, esc_perc, fail_perc, entry_count, entry_count_non_cs, n_shuttl_per_ten_min_cs, n_shuttl_per_ten_min_non_cs, total_duration] + entry_cs + exit_cs + latency_cs + total_cs_duration + avg_latency, (1, -1)), columns=col)
         return temp_df
     except Exception as e:
-        print(file_path.split('\\')[-4].split()[-1], file_path.split('\\')[-3], animal_id, " -> ", e)
+        print(file_path.split('\\')[-4].split()[-1], file_path.split('\\')[-3], " -> ", e)
         return None
 
 def process_gs_data(GS_DIR_PATH):
@@ -89,10 +89,10 @@ def process_gs_data(GS_DIR_PATH):
 
     return data_df
 
-def add_animal_details(data_df, exp_df, ct):
+def add_animal_details(data_df, exp_df, ct, dt):
     """Add animal details from exp_df to data_df based on common identifiers."""
     na_mask = exp_df['SN'].isna() | exp_df['SN'].isnull() # Check for NaN values in SN column
-    start_index = exp_df[~na_mask & exp_df['SN'].str.contains(ct)].index[0] # Get the index of the first non-NaN value in SN column
+    start_index = exp_df[~na_mask & exp_df['SN'].str.contains(ct) & exp_df['SN'].str.contains(dt)].index[0] # Get the index of the first non-NaN value in SN column
 
     next_index_with_nan = None
     for index in range(start_index + 1, len(exp_df)):
@@ -114,7 +114,7 @@ def align_center(x):
     """Align text in cells to center."""
     return ['text-align: center' for _ in x]
 
-def process_and_save_data(PATH, exp_df, ct, add_animal_info=True):
+def process_and_save_data(PATH, exp_df, ct, dt, add_animal_info=True):
     """Process data in subfolders of PATH and save to Excel."""
     title_split = PATH.split('\\')
     info = title_split[-1].split()
@@ -128,7 +128,7 @@ def process_and_save_data(PATH, exp_df, ct, add_animal_info=True):
             GS_DIR_PATH = os.path.join(GS_DIR_PATH, 'csv files')
             data_df = process_gs_data(GS_DIR_PATH)  # Assuming process_data is defined elsewhere
             if add_animal_info:
-                data_df = add_animal_details(data_df, exp_df, ct)
+                data_df = add_animal_details(data_df, exp_df, ct, dt)
                 data_df.set_index('SN', inplace=True)
             data_df.sort_index(inplace=True)
             data_df.style.apply(align_center, axis=0).to_excel(writer, sheet_name=subfolder, index=True)
@@ -146,9 +146,10 @@ if __name__ == '__main__':
 
     for subfolder in tqdm(sorted(os.listdir(args.path)), desc="Processing subfolders", unit="folder"):
         ct = subfolder.split()[-2]
+        dt = subfolder.split()[0]
         GS_DIR_PATH = os.path.join(args.path, subfolder)
         try:
             if os.path.isdir(GS_DIR_PATH):
-                process_and_save_data(GS_DIR_PATH, exp_df, ct)
+                process_and_save_data(GS_DIR_PATH, exp_df, ct, dt)
         except Exception as e:
             print(f"Error processing {GS_DIR_PATH}: {e}")
