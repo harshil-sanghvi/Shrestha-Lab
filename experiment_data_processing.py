@@ -128,7 +128,6 @@ if __name__ == '__main__':
     parser.add_argument("--exp_details_path", help="Path to the Excel file containing experiment details", type=str, required=True)
     args = parser.parse_args()
 
-    print(args.path, args.exp_details_path)
     exp_df = pd.read_excel(args.exp_details_path, usecols=[0, 1, 2, 3, 4])
     exp_df.columns = ['SN', 'Animal', 'Sex', 'Subject ID', 'Group ']
 
@@ -140,3 +139,4 @@ if __name__ == '__main__':
                 process_and_save_data(GS_DIR_PATH, exp_df, ct)
         except Exception as e:
             print(f"Error processing {GS_DIR_PATH}: {e}")
+            
