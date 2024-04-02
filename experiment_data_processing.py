@@ -17,7 +17,9 @@ def process_file(file_path, total_trials, col):
     try:
         df = pd.read_csv(file_path, header=None).fillna('00:00.0').iloc[:, 1:5]
         df.columns = ['Time', 'Event', 'C', 'Desc']
-
+        
+        total_duration = df[df['Event'] == 'Finish']['Time'].astype(int).values[0]
+        
         # Count number of rows with 'Right Entry' or 'Left Entry' in Desc
         entry_count = df[(df['Desc'] == 'Right Entry') | (df['Desc'] == 'Left Entry')].shape[0]
 
@@ -31,7 +33,13 @@ def process_file(file_path, total_trials, col):
 
         # Calculate latency
         latency_cs = [exit - entry for exit, entry in zip(exit_cs, entry_cs)]
-
+        
+        # calculate total CS duration
+        total_cs_duration = [sum(latency_cs)]
+        
+        # calculate average latency
+        avg_latency = [round(sum(latency_cs) / len(latency_cs), 1)]
+        
         # Calculate counts
         av_count = df[df['Desc'] == 'Avoidance'].shape[0] // 2
         esc_count = df[df['Desc'] == 'Escape'].shape[0] // 2
@@ -42,9 +50,14 @@ def process_file(file_path, total_trials, col):
         esc_perc = round(esc_count / total_trials * 100, 1)
         fail_perc = abs(round(100 - av_perc - esc_perc, 1))
 
+        entry_count_non_cs = entry_count - av_count
+
+        n_shuttl_per_ten_min_cs = round((av_count/total_cs_duration[0]) * 600, 2)
+        n_shuttl_per_ten_min_non_cs = round((entry_count_non_cs/(total_duration - total_cs_duration[0])) * 600, 2)
+        
         animal_id = os.path.basename(file_path).split('_')[-1].split('.')[0]
         
-        temp_df = pd.DataFrame(np.reshape([animal_id, av_count, esc_count, fail_count, av_perc, esc_perc, fail_perc, entry_count] + entry_cs + exit_cs + latency_cs, (1, -1)), columns=col)
+        temp_df = pd.DataFrame(np.reshape([animal_id, av_count, esc_count, fail_count, av_perc, esc_perc, fail_perc, entry_count, entry_count_non_cs, n_shuttl_per_ten_min_cs, n_shuttl_per_ten_min_non_cs, total_duration] + entry_cs + exit_cs + latency_cs + total_cs_duration + avg_latency, (1, -1)), columns=col)
         return temp_df
     except Exception as e:
         print(file_path.split('\\')[-4].split()[-1], file_path.split('\\')[-3], animal_id, " -> ", e)
@@ -57,10 +70,10 @@ def process_gs_data(GS_DIR_PATH):
 
     # Define column names for the DataFrame
     col = pd.MultiIndex.from_arrays([
-        ['Animal ID'] + ['SAA#']*3 + ['SAA%']*3 + ['n[Shuttle]'] + ['entry']*total_trials +
-        ['exit']*total_trials + ['latency']*total_trials,
-        [''] + ['Av', 'Esc', 'Fail'] * 2 + [''] + ['CS' + str(i) for i in range(1, total_trials + 1)] * 2 +
-        ['CS' + str(i) for i in range(1, total_trials + 1)]
+        ['Animal ID'] + ['SAA#']*3 + ['SAA%']*3 + ['n[Shuttle]']*2 + ['n[Shuttle]/10min']*2 + ['Total'] + ['entry']*total_trials +
+        ['exit']*total_trials + ['latency']*total_trials + ['Total CS']  + ['Average'],
+        [''] + ['Av', 'Esc', 'Fail'] * 2 + ['Total'] + ['non CS'] + ['CS'] + ['non CS'] + ['Duration'] + ['CS' + str(i) for i in range(1, total_trials + 1)] * 2 +
+        ['CS' + str(i) for i in range(1, total_trials + 1)] + ['Duration'] + ['latency']
     ])
 
     data_df = pd.DataFrame(columns=col)
@@ -93,7 +106,7 @@ def add_animal_details(data_df, exp_df, ct):
     exp_df.columns = pd.MultiIndex.from_arrays([exp_df.columns, ['']*len(exp_df.columns)])
     exp_df_renamed = exp_df.rename(columns={'Animal': 'Animal ID'})
     
-    final_df = pd.concat([exp_df_renamed, data_df], axis=1, join='inner', sort=False)
+    final_df = pd.merge(exp_df_renamed, data_df, on='Animal ID', how='inner')
     final_df = final_df.loc[:, ~final_df.columns.duplicated()]
     return final_df
 
@@ -139,4 +152,3 @@ if __name__ == '__main__':
                 process_and_save_data(GS_DIR_PATH, exp_df, ct)
         except Exception as e:
             print(f"Error processing {GS_DIR_PATH}: {e}")
-            
