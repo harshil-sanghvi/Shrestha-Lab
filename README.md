@@ -47,24 +47,13 @@ The code relies on several Python libraries:
 
 ## Example
 
+A user can run the script by providing the path to the data folder and the path to the Excel file containing experiment details as arguments in the command line.
+
 ```python
-PATH = r"MainDirectory"
-EXP_DETAILS_PATH = r"ExperimentDetails.xlsx"
-
-exp_df = pd.read_excel(EXP_DETAILS_PATH, usecols=[0, 1, 2, 3, 4])
-exp_df.columns = ['SN', 'Animal', 'Sex', 'Subject ID', 'Group ']
-
-for subfolder in tqdm(sorted(os.listdir(PATH)), desc="Processing subfolders", unit="folder"):
-    ct = subfolder.split()[-1]
-    GS_DIR_PATH = os.path.join(PATH, subfolder)
-    try:
-        if os.path.isdir(GS_DIR_PATH):
-            process_and_save_data(GS_DIR_PATH, exp_df, ct)
-    except Exception as e:
-        print(f"Error processing {GS_DIR_PATH}: {e}")
+python experiment_data_processing.py --path "C:\Users\user\Documents\Data" --exp_details_path "C:\Users\user\Documents\Experiment_Details.xlsx"
 ```
 
-In this example, replace "MainDirectory" with the actual path to the main directory containing subfolders, and "ExperimentDetails.xlsx" with the path to the file containing experiment details. The script processes each subfolder, adds animal details to the data, and saves the results as separate Excel files for each subfolder.
+In this example, the script processes the data in the subfolders of the specified path and saves the processed data to Excel files. The experiment details are extracted from the Excel file provided and added to the processed data.
 
 ## Notes
 
