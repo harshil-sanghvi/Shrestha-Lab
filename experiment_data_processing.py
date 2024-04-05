@@ -145,7 +145,7 @@ if __name__ == '__main__':
     exp_df.columns = ['SN', 'Animal', 'Sex', 'Subject ID', 'Group ']
 
     for subfolder in tqdm(sorted(os.listdir(args.path)), desc="Processing subfolders", unit="folder"):
-        ct = subfolder.split()[-2]
+        ct = subfolder.split()[-2] # if using old WT SAA data, use subfolder.split()[-1]. For newer data following established naming convention, use subfolder.split()[-2]
         dt = subfolder.split()[0]
         GS_DIR_PATH = os.path.join(args.path, subfolder)
         try:
