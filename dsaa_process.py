@@ -136,12 +136,13 @@ def process_and_save_data(PATH, exp_df, ct, dt, add_animal_info=True):
     writer.close()
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Process data from subfolders in a folder and save to Excel.")
-    parser.add_argument("--path", help="Path to the data folder", type=str, required=True)
-    parser.add_argument("--exp_details_path", help="Path to the Excel file containing experiment details", type=str, required=True)
-    args = parser.parse_args()
+    # parser = argparse.ArgumentParser(description="Process data from subfolders in a folder and save to Excel.")
+    # parser.add_argument("--path", help="Path to the data folder", type=str, required=True)
+    # parser.add_argument("--exp_details_path", help="Path to the Excel file containing experiment details", type=str, required=True)
+    # args = parser.parse_args()
 
-    exp_df = pd.read_excel(args.exp_details_path, usecols=[0, 1, 2, 3, 4])
+    EXP_DETAILS_PATH = r'G:\Shared drives\NBB_ShresthaLab_SharedDrive\LM - Harshil Sanghvi\WT SAA data\WT SAA cohorts.xlsx'
+    exp_df = pd.read_excel(EXP_DETAILS_PATH, usecols=[0, 1, 2, 3, 4])
     exp_df.columns = ['SN', 'Animal', 'Sex', 'Subject ID', 'Group ']
 
     for subfolder in tqdm(sorted(os.listdir(args.path)), desc="Processing subfolders", unit="folder"):
@@ -150,6 +151,6 @@ if __name__ == '__main__':
         GS_DIR_PATH = os.path.join(args.path, subfolder)
         try:
             if os.path.isdir(GS_DIR_PATH):
-                process_and_save_data(GS_DIR_PATH, exp_df, ct, dt)
+                process_and_save_data(GS_DIR_PATH, exp_df, ct, dt, add_animal_info=False)
         except Exception as e:
             print(f"Error processing {GS_DIR_PATH}: {e}")
