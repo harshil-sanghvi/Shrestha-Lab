@@ -50,7 +50,7 @@ The code relies on several Python libraries:
 A user can run the script by providing the path to the data folder and the path to the Excel file containing experiment details as arguments in the command line.
 
 ```python
-python experiment_data_processing.py --path "C:\Users\user\Documents\Data" --exp_details_path "C:\Users\user\Documents\Experiment_Details.xlsx"
+python saa_process.py --path "C:\Users\user\Documents\Data" --exp_details_path "C:\Users\user\Documents\Experiment_Details.xlsx"
 ```
 
 In this example, the script processes the data in the subfolders of the specified path and saves the processed data to Excel files. The experiment details are extracted from the Excel file provided and added to the processed data.
