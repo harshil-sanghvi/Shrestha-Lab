@@ -4,6 +4,7 @@ import numpy as np
 from pandas import ExcelWriter
 import warnings
 from tqdm import tqdm
+import traceback
 import argparse
 
 warnings.filterwarnings("ignore")
@@ -12,55 +13,111 @@ def check_saa_in_path(path):
     """Check if 'SAA' is present in the path."""
     return 'SAA' in path.split('\\')[-2].upper()
 
+def get_total_duration(df):
+    return df[df['Event'] == 'Finish']['Time'].astype(int).values[0]
+
+def get_n_shuttl_total(df):
+    return df[(df['Desc'] == 'Right Entry') | (df['Desc'] == 'Left Entry')].shape[0]
+
+def get_entry_exit_cs(df):
+    entry_cs = df[df['Event'] == 'Entry']['Seconds'].tolist()
+    exit_cs = df[df['Event'] == 'Exit']['Seconds'].tolist()
+    return entry_cs, exit_cs
+
+def get_latency(entry_cs, exit_cs):
+    return [exit - entry for exit, entry in zip(exit_cs, entry_cs)]
+
+def get_total_cs_duration(latency_cs):
+    return [sum(latency_cs)]
+
+def get_avg_latency(latency_cs):
+    return [round(sum(latency_cs) / len(latency_cs), 1)]
+
+def get_n_shuttl_per_ten_min(n_shuttl, total_duration):
+    return round((n_shuttl / total_duration) * 600, 2)
+
+def get_num_of_av_esc_fail(df, total_trials, avoid, escape):
+    av = df[df['Desc'] == avoid].shape[0] // 2
+    esc = df[df['Desc'] == escape].shape[0] // 2
+    fail = total_trials - av - esc
+    return av, esc, fail
+
+def get_perc_of_av_esc_fail(av, esc, total_trials):
+    av_perc = round(av / total_trials * 100, 1)
+    esc_perc = round(esc / total_trials * 100, 1)
+    fail_perc = abs(round(100 - av_perc - esc_perc, 1))
+    return av_perc, esc_perc, fail_perc
+
+def get_animal_id(file_path):
+    return os.path.basename(file_path).split('_')[-1].split('.')[0].split()[-1]
+
+def get_cs_data(cs_df):
+    entry_cs, exit_cs = get_entry_exit_cs(cs_df)
+    latency_cs = get_latency(entry_cs, exit_cs)
+    total_cs_duration = get_total_cs_duration(latency_cs)
+    avg_latency = get_avg_latency(latency_cs)
+    return entry_cs, exit_cs, latency_cs, total_cs_duration, avg_latency
+
+def get_duration(latencies):
+    return sum(latencies)
+
+def calculate_DI(cs_pos_av, cs_neg_av):
+    try:
+        return [round((cs_pos_av - cs_neg_av) / (cs_pos_av + cs_neg_av), 1)]
+    except ZeroDivisionError:
+        return [9]
+
+def get_features_df(animal_id, cs_pos_av, cs_pos_esc, cs_pos_fail, cs_pos_av_perc, cs_pos_esc_perc, cs_pos_fail_perc, n_shuttl_total, n_shuttl_non_cs, n_shuttl_per_ten_min_cs_pos, n_shuttl_per_ten_min_non_cs, total_duration, cs_pos_entry, cs_pos_exit, cs_pos_latency, cs_pos_total_duration, cs_pos_avg_latency, cs_neg_av, cs_neg_esc, cs_neg_fail, cs_neg_av_perc, cs_neg_esc_perc, cs_neg_fail_perc, n_shuttl_per_ten_min_cs_neg, cs_neg_entry, cs_neg_exit, cs_neg_latency, cs_neg_total_duration, cs_neg_avg_latency, di, col):
+    return pd.DataFrame(np.reshape([animal_id, cs_pos_av, cs_pos_esc, cs_pos_fail, cs_pos_av_perc, cs_pos_esc_perc, cs_pos_fail_perc, n_shuttl_total, n_shuttl_non_cs, n_shuttl_per_ten_min_cs_pos, n_shuttl_per_ten_min_non_cs, total_duration] + cs_pos_entry + cs_pos_exit + cs_pos_latency + cs_pos_total_duration + cs_pos_avg_latency + [cs_neg_av, cs_neg_esc, cs_neg_fail, cs_neg_av_perc, cs_neg_esc_perc, cs_neg_fail_perc, n_shuttl_total, n_shuttl_non_cs, n_shuttl_per_ten_min_cs_neg, n_shuttl_per_ten_min_non_cs, total_duration] + cs_neg_entry + cs_neg_exit + cs_neg_latency + cs_neg_total_duration + cs_neg_avg_latency + di, (1, -1)), columns=col)
+    
+unique_desc = set()
+unique_event = set()
+
 def process_file(file_path, total_trials, col):
     """Process an individual file and extract required data."""
     try:
-        df = pd.read_csv(file_path, header=None).fillna('00:00.0').iloc[:, 1:5]
+        df = pd.read_csv(file_path, header=None).iloc[:, 1:5]
         df.columns = ['Time', 'Event', 'C', 'Desc']
         
-        total_duration = df[df['Event'] == 'Finish']['Time'].astype(int).values[0]
+        total_duration = get_total_duration(df)
         
         # Count number of rows with 'Right Entry' or 'Left Entry' in Desc
-        entry_count = df[(df['Desc'] == 'Right Entry') | (df['Desc'] == 'Left Entry')].shape[0]
+        n_shuttl_total = get_n_shuttl_total(df)
 
         # Filter only necessary data
-        cs_df = df[(df['Desc'] == 'CS (Tone)')]
-        cs_df['Seconds'] = cs_df['Time'].astype(int)
+        cs_pos_df = df[(df['Desc'] == 'CS+ (Threat cue)')]
+        cs_pos_df['Seconds'] = cs_pos_df['Time'].astype(int)
 
-        # Separate entry and exit CS
-        entry_cs = cs_df[cs_df['Event'] == 'Entry']['Seconds'].tolist()
-        exit_cs = cs_df[cs_df['Event'] == 'Exit']['Seconds'].tolist()
+        cs_pos_entry, cs_pos_exit, cs_pos_latency, cs_pos_total_duration, cs_pos_avg_latency = get_cs_data(cs_pos_df)
 
-        # Calculate latency
-        latency_cs = [exit - entry for exit, entry in zip(exit_cs, entry_cs)]
+        cs_neg_df = df[(df['Desc'] == 'CS- (Safety cue)')]
+        cs_neg_df['Seconds'] = cs_neg_df['Time'].astype(int)
+
+        cs_neg_entry, cs_neg_exit, cs_neg_latency, cs_neg_total_duration, cs_neg_avg_latency = get_cs_data(cs_neg_df)
         
-        # calculate total CS duration
-        total_cs_duration = [sum(latency_cs)]
+        cs_pos_av, cs_pos_esc, cs_pos_fail = get_num_of_av_esc_fail(df, total_trials, 'CS+ Avoidance', 'CS+ Escape')
+        cs_neg_av, cs_neg_esc, cs_neg_fail = get_num_of_av_esc_fail(df, total_trials, 'CS- Avoidance', 'CS- Escape')
         
-        # calculate average latency
-        avg_latency = [round(sum(latency_cs) / len(latency_cs), 1)]
+        cs_pos_av_perc, cs_pos_esc_perc, cs_pos_fail_perc = get_perc_of_av_esc_fail(cs_pos_av, cs_pos_esc, total_trials)
+        cs_neg_av_perc, cs_neg_esc_perc, cs_neg_fail_perc = get_perc_of_av_esc_fail(cs_neg_av, cs_neg_esc, total_trials)
         
-        # Calculate counts
-        av_count = df[df['Desc'] == 'Avoidance'].shape[0] // 2
-        esc_count = df[df['Desc'] == 'Escape'].shape[0] // 2
-        fail_count = total_trials - av_count - esc_count
-
-        # Calculate percentages
-        av_perc = round(av_count / total_trials * 100, 1)
-        esc_perc = round(esc_count / total_trials * 100, 1)
-        fail_perc = abs(round(100 - av_perc - esc_perc, 1))
-
-        entry_count_non_cs = entry_count - av_count
-
-        n_shuttl_per_ten_min_cs = round((av_count/total_cs_duration[0]) * 600, 2)
-        n_shuttl_per_ten_min_non_cs = round((entry_count_non_cs/(total_duration - total_cs_duration[0])) * 600, 2)
+        n_shuttl_non_cs = n_shuttl_total - cs_pos_av - cs_neg_av
         
-        animal_id = os.path.basename(file_path).split('_')[-1].split('.')[0].split()[-1]
+        cs_pos_duration = get_duration(cs_pos_latency)
+        cs_neg_duration = get_duration(cs_neg_latency)
 
-        temp_df = pd.DataFrame(np.reshape([animal_id, av_count, esc_count, fail_count, av_perc, esc_perc, fail_perc, entry_count, entry_count_non_cs, n_shuttl_per_ten_min_cs, n_shuttl_per_ten_min_non_cs, total_duration] + entry_cs + exit_cs + latency_cs + total_cs_duration + avg_latency, (1, -1)), columns=col)
-        return temp_df
+        n_shuttl_per_ten_min_cs_pos = get_n_shuttl_per_ten_min(cs_pos_av, cs_pos_duration)
+        n_shuttl_per_ten_min_cs_neg = get_n_shuttl_per_ten_min(cs_neg_av, cs_neg_duration)
+        n_shuttl_per_ten_min_non_cs = get_n_shuttl_per_ten_min(n_shuttl_non_cs, total_duration - cs_pos_duration - cs_neg_duration)
+           
+        DI = calculate_DI(cs_pos_av, cs_neg_av)
+
+        animal_id = get_animal_id(file_path)
+        return get_features_df(animal_id, cs_pos_av, cs_pos_esc, cs_pos_fail, cs_pos_av_perc, cs_pos_esc_perc, cs_pos_fail_perc, n_shuttl_total, n_shuttl_non_cs, n_shuttl_per_ten_min_cs_pos, n_shuttl_per_ten_min_non_cs, total_duration, cs_pos_entry, cs_pos_exit, cs_pos_latency, cs_pos_total_duration, cs_pos_avg_latency, cs_neg_av, cs_neg_esc, cs_neg_fail, cs_neg_av_perc, cs_neg_esc_perc, cs_neg_fail_perc, n_shuttl_per_ten_min_cs_neg, cs_neg_entry, cs_neg_exit, cs_neg_latency, cs_neg_total_duration, cs_neg_avg_latency, DI, col)
     except Exception as e:
-        print(file_path.split('\\')[-4].split()[-1], file_path.split('\\')[-3], " -> ", e)
+        # print(file_path)
+        print(file_path.split('\\')[-4].split()[-1], file_path.split('\\')[-3], file_path.split('\\')[-1].split('.')[-2]," -> ", e)
+        traceback.print_exc()
         return None
 
 def process_gs_data(GS_DIR_PATH):
@@ -70,10 +127,8 @@ def process_gs_data(GS_DIR_PATH):
 
     # Define column names for the DataFrame
     col = pd.MultiIndex.from_arrays([
-        ['Animal ID'] + ['SAA#']*3 + ['SAA%']*3 + ['n[Shuttle]']*2 + ['n[Shuttle]/10min']*2 + ['Total'] + ['entry']*total_trials +
-        ['exit']*total_trials + ['latency']*total_trials + ['Total CS']  + ['Average'],
-        [''] + ['Av', 'Esc', 'Fail'] * 2 + ['Total'] + ['non CS'] + ['CS'] + ['non CS'] + ['Duration'] + ['CS' + str(i) for i in range(1, total_trials + 1)] * 2 +
-        ['CS' + str(i) for i in range(1, total_trials + 1)] + ['Duration'] + ['latency']
+        ['Animal ID'] + ['CS+ #']*3 + ['CS+ %']*3 + ['n[Shuttle]']*2 + ['n[Shuttle]/10min']*2 + ['Total'] + ['entry']*total_trials + ['exit']*total_trials + ['latency']*total_trials + ['total CS+'] + ['Avg CS+'] + ['CS- #']*3 + ['CS- %']*3 + ['n[Shuttle]']*2 + ['n[Shuttle]/10min']*2 + ['Total'] + ['entry']*total_trials + ['exit']*total_trials + ['latency']*total_trials + ['total CS-'] + ['Avg CS-'] + ['DI'], 
+        [''] + ['Av', 'Esc', 'Fail']*2 + ['Total', 'Non-CS', 'CS+', 'Non-CS'] + ['Duration'] + ['CS+ ' + str(i) for i in range(1, total_trials + 1)]*3 + ['Duration', 'Latency'] + ['Av', 'Esc', 'Fail']*2 + ['Total', 'Non-CS', 'CS-', 'Non-CS'] + ['Duration'] + ['CS- ' + str(i) for i in range(1, total_trials + 1)]*3 + ['Duration', 'Latency', '']
     ])
 
     data_df = pd.DataFrame(columns=col)
@@ -117,9 +172,12 @@ def align_center(x):
 def process_and_save_data(PATH, exp_df, ct, dt, add_animal_info=True):
     """Process data in subfolders of PATH and save to Excel."""
     title_split = PATH.split('\\')
+    SAVE_DIR = '\\'.join(title_split[:-3]) + '\\Results'
+    if not os.path.exists(SAVE_DIR):
+        os.makedirs(SAVE_DIR)
     info = title_split[-1].split()
     title = info[1].split('_')[0] + ' ' + (info[1].split('_')[1]).upper() + ' ' + info[2] + ' ' + info[0]
-    output_file = title + '.xlsx'
+    output_file = SAVE_DIR + '\\' + title + '.xlsx'
     writer = ExcelWriter(output_file)
 
     for subfolder in sorted(os.listdir(PATH)):
@@ -141,16 +199,18 @@ if __name__ == '__main__':
     # parser.add_argument("--exp_details_path", help="Path to the Excel file containing experiment details", type=str, required=True)
     # args = parser.parse_args()
 
-    EXP_DETAILS_PATH = r'G:\Shared drives\NBB_ShresthaLab_SharedDrive\LM - Harshil Sanghvi\WT SAA data\WT SAA cohorts.xlsx'
+    PATH = r'C:\Users\hsanghvi\OneDrive - Stony Brook University\Documents\Shrestha Lab\Datasets\WT DSAA Trial'
+    EXP_DETAILS_PATH = r"G:\Shared drives\NBB_ShresthaLab_SharedDrive\LM - Harshil Sanghvi\WT DSAA data\WT DSAA cohorts.xlsx"
     exp_df = pd.read_excel(EXP_DETAILS_PATH, usecols=[0, 1, 2, 3, 4])
     exp_df.columns = ['SN', 'Animal', 'Sex', 'Subject ID', 'Group ']
 
-    for subfolder in tqdm(sorted(os.listdir(args.path)), desc="Processing subfolders", unit="folder"):
+    for subfolder in tqdm(sorted(os.listdir(PATH)), desc="Processing subfolders", unit="folder"):
         ct = subfolder.split()[-2] # if using old WT SAA data, use subfolder.split()[-1]. For newer data following established naming convention, use subfolder.split()[-2]
         dt = subfolder.split()[0]
-        GS_DIR_PATH = os.path.join(args.path, subfolder)
+        GS_DIR_PATH = os.path.join(PATH, subfolder)
         try:
             if os.path.isdir(GS_DIR_PATH):
                 process_and_save_data(GS_DIR_PATH, exp_df, ct, dt, add_animal_info=False)
         except Exception as e:
             print(f"Error processing {GS_DIR_PATH}: {e}")
+            traceback.print_exc()
