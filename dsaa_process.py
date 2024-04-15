@@ -65,7 +65,7 @@ def calculate_DI(cs_pos_av, cs_neg_av):
     try:
         return [round((cs_pos_av - cs_neg_av) / (cs_pos_av + cs_neg_av), 1)]
     except ZeroDivisionError:
-        return [9]
+        return ['N/A']
 
 def get_features_df(animal_id, cs_pos_av, cs_pos_esc, cs_pos_fail, cs_pos_av_perc, cs_pos_esc_perc, cs_pos_fail_perc, n_shuttl_total, n_shuttl_non_cs, n_shuttl_per_ten_min_cs_pos, n_shuttl_per_ten_min_non_cs, total_duration, cs_pos_entry, cs_pos_exit, cs_pos_latency, cs_pos_total_duration, cs_pos_avg_latency, cs_neg_av, cs_neg_esc, cs_neg_fail, cs_neg_av_perc, cs_neg_esc_perc, cs_neg_fail_perc, n_shuttl_per_ten_min_cs_neg, cs_neg_entry, cs_neg_exit, cs_neg_latency, cs_neg_total_duration, cs_neg_avg_latency, di, col):
     # print all the variables with a new line for each variable
@@ -149,20 +149,26 @@ def process_gs_data(GS_DIR_PATH):
 
 def add_animal_details(data_df, exp_df, ct, dt):
     """Add animal details from exp_df to data_df based on common identifiers."""
-    na_mask = exp_df['SN'].isna() | exp_df['SN'].isnull() # Check for NaN values in SN column
-    start_index = exp_df[~na_mask & exp_df['SN'].str.contains(ct) & exp_df['SN'].str.contains(dt)].index[0] # Get the index of the first non-NaN value in SN column
+    try:
+        na_mask = exp_df['SN'].isna() | exp_df['SN'].isnull() # Check for NaN values in SN column
+        start_index = exp_df[~na_mask & exp_df['SN'].str.contains(ct) & exp_df['SN'].str.contains(dt)].index[0] # Get the index of the first non-NaN value in SN column
 
-    next_index_with_nan = None
-    for index in range(start_index + 1, len(exp_df)):
-        if exp_df.iloc[index].isnull().all():
-            next_index_with_nan = index
-            break
+        next_index_with_nan = None
+        for index in range(start_index + 1, len(exp_df)):
+            if exp_df.iloc[index].isnull().all():
+                next_index_with_nan = index
+                break
 
-    exp_df = exp_df[start_index+2:next_index_with_nan]
-    exp_df.reset_index(drop=True, inplace=True)
-    exp_df.sort_values(by='Animal', inplace=True)
-    exp_df.columns = pd.MultiIndex.from_arrays([exp_df.columns, ['']*len(exp_df.columns)])
-    exp_df_renamed = exp_df.rename(columns={'Animal': 'Animal ID'})
+        exp_df = exp_df[start_index+2:next_index_with_nan]
+        exp_df.reset_index(drop=True, inplace=True)
+        exp_df.sort_values(by='Animal', inplace=True)
+        exp_df.columns = pd.MultiIndex.from_arrays([exp_df.columns, ['']*len(exp_df.columns)])
+        exp_df_renamed = exp_df.rename(columns={'Animal': 'Animal ID'})
+    except Exception as e:
+        print(f"Error adding animal details for {ct} {dt}: {e}")
+        # if error occurs, create an empty DataFrame named exp_df_renamed with columns as Animal ID, Sex, Subject ID, Group
+        exp_df_renamed = pd.DataFrame(columns=['Animal ID, Sex, Subject ID, Group'])
+
     
     final_df = pd.merge(exp_df_renamed, data_df, on='Animal ID', how='inner')
     final_df = final_df.loc[:, ~final_df.columns.duplicated()]
@@ -195,7 +201,11 @@ def process_and_save_data(PATH, exp_df, ct, dt, add_animal_info=True):
             if add_animal_info:
                 data_df = add_animal_details(data_df, exp_df, ct, dt)
                 data_df.set_index('SN', inplace=True)
-            data_df.sort_index(inplace=True)
+            # data_df.sort_index(inplace=True)
+            # print(subfolder)
+            # print(data_df.columns)
+            # print(GS_DIR_PATH)
+            # data_df.reset_index(inplace=True)
             data_df.style.apply(align_center, axis=0).to_excel(writer, sheet_name=subfolder, index=True)
             
 
@@ -214,6 +224,8 @@ if __name__ == '__main__':
 
     for subfolder in tqdm(sorted(os.listdir(PATH)), desc="Processing subfolders", unit="folder"):
         ct = subfolder.split()[-2] # if using old WT SAA data, use subfolder.split()[-1]. For newer data following established naming convention, use subfolder.split()[-2]
+        # if 'CT2' in ct:
+        #     continue
         dt = subfolder.split()[0]
         GS_DIR_PATH = os.path.join(PATH, subfolder)
         try:
