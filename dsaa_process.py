@@ -13,6 +13,20 @@ def check_saa_in_path(path):
     """Check if 'SAA' is present in the path."""
     return 'SAA' in path.split('\\')[-2].upper()
 
+def get_num_trials(path):
+    if not check_saa_in_path(path):
+        return 5
+    else:
+        first_file = os.listdir(path)[0]
+        first_file_path = os.path.join(path, first_file)
+        return get_trials_from_file(first_file_path)
+    
+def get_trials_from_file(file_path):
+    df = pd.read_csv(file_path, header=None).iloc[:, 1:5]
+    df.columns = ['Time', 'Event', 'C', 'Desc']
+    return df[(df['Desc'] == 'CS+ (Threat cue)')].shape[0]//2
+
+
 def get_total_duration(df):
     return df[df['Event'] == 'Finish']['Time'].astype(int).values[0]
 
@@ -68,8 +82,6 @@ def calculate_DI(cs_pos_av, cs_neg_av):
         return ['N/A']
 
 def get_features_df(animal_id, cs_pos_av, cs_pos_esc, cs_pos_fail, cs_pos_av_perc, cs_pos_esc_perc, cs_pos_fail_perc, n_shuttl_total, n_shuttl_non_cs, n_shuttl_per_ten_min_cs_pos, n_shuttl_per_ten_min_non_cs, total_duration, cs_pos_entry, cs_pos_exit, cs_pos_latency, cs_pos_total_duration, cs_pos_avg_latency, cs_neg_av, cs_neg_esc, cs_neg_fail, cs_neg_av_perc, cs_neg_esc_perc, cs_neg_fail_perc, n_shuttl_per_ten_min_cs_neg, cs_neg_entry, cs_neg_exit, cs_neg_latency, cs_neg_total_duration, cs_neg_avg_latency, di, col):
-    # print all the variables with a new line for each variable
-    # print(f"animal_id: {animal_id}\ncs_pos_av: {cs_pos_av}\ncs_pos_esc: {cs_pos_esc}\ncs_pos_fail: {cs_pos_fail}\ncs_pos_av_perc: {cs_pos_av_perc}\ncs_pos_esc_perc: {cs_pos_esc_perc}\ncs_pos_fail_perc: {cs_pos_fail_perc}\nn_shuttl_total: {n_shuttl_total}\nn_shuttl_non_cs: {n_shuttl_non_cs}\nn_shuttl_per_ten_min_cs_pos: {n_shuttl_per_ten_min_cs_pos}\nn_shuttl_per_ten_min_non_cs: {n_shuttl_per_ten_min_non_cs}\ntotal_duration: {total_duration}\ncs_pos_entry: {cs_pos_entry}\ncs_pos_exit: {cs_pos_exit}\ncs_pos_latency: {cs_pos_latency}\ncs_pos_total_duration: {cs_pos_total_duration}\ncs_pos_avg_latency: {cs_pos_avg_latency}\ncs_neg_av: {cs_neg_av}\ncs_neg_esc: {cs_neg_esc}\ncs_neg_fail: {cs_neg_fail}\ncs_neg_av_perc: {cs_neg_av_perc}\ncs_neg_esc_perc: {cs_neg_esc_perc}\ncs_neg_fail_perc: {cs_neg_fail_perc}\nn_shuttl_per_ten_min_cs_neg: {n_shuttl_per_ten_min_cs_neg}\ncs_neg_entry: {cs_neg_entry}\ncs_neg_exit: {cs_neg_exit}\ncs_neg_latency: {cs_neg_latency}\ncs_neg_total_duration: {cs_neg_total_duration}\ncs_neg_avg_latency: {cs_neg_avg_latency}\ndi: {di}")
     return pd.DataFrame(np.reshape([animal_id, cs_pos_av, cs_pos_esc, cs_pos_fail, cs_pos_av_perc, cs_pos_esc_perc, cs_pos_fail_perc] + cs_pos_entry + cs_pos_exit + cs_pos_latency + cs_pos_total_duration + cs_pos_avg_latency + [cs_neg_av, cs_neg_esc, cs_neg_fail, cs_neg_av_perc, cs_neg_esc_perc, cs_neg_fail_perc, n_shuttl_total, n_shuttl_non_cs, n_shuttl_per_ten_min_cs_pos, n_shuttl_per_ten_min_cs_neg, n_shuttl_per_ten_min_non_cs, total_duration] + cs_neg_entry + cs_neg_exit + cs_neg_latency + cs_neg_total_duration + cs_neg_avg_latency + di, (1, -1)), columns=col)
     
 def process_file(file_path, total_trials, col):
@@ -77,32 +89,32 @@ def process_file(file_path, total_trials, col):
     try:
         df = pd.read_csv(file_path, header=None).iloc[:, 1:5]
         df.columns = ['Time', 'Event', 'C', 'Desc']
+
+        if total_trials == 12:
+            df = df.iloc[:df[(df['Desc'] == 'CS- (Safety cue)') & (df['Event'] == 'Exit')].index[10] + 1]
+            total_duration = df[(df['Event'] == 'Exit') & (df['Desc'] == 'CS- (Safety cue)')]['Time'].iloc[10].astype(int)
+        else:
+            total_duration = get_total_duration(df)
         
-        total_duration = get_total_duration(df)
-        
-        # Count number of rows with 'Right Entry' or 'Left Entry' in Desc
         n_shuttl_total = get_n_shuttl_total(df)
 
-        # Filter only necessary data
         cs_pos_df = df[(df['Desc'] == 'CS+ (Threat cue)')]
         cs_pos_df['Seconds'] = cs_pos_df['Time'].astype(int)
-
-        # print(cs_pos_df)
 
         cs_pos_entry, cs_pos_exit, cs_pos_latency, cs_pos_total_duration, cs_pos_avg_latency = get_cs_data(cs_pos_df)
 
         cs_neg_df = df[(df['Desc'] == 'CS- (Safety cue)')]
         cs_neg_df['Seconds'] = cs_neg_df['Time'].astype(int)
 
-        # print(cs_neg_df)
-
         cs_neg_entry, cs_neg_exit, cs_neg_latency, cs_neg_total_duration, cs_neg_avg_latency = get_cs_data(cs_neg_df)
+
+        trials_for_this_file = min(get_trials_from_file(file_path), 11)
         
-        cs_pos_av, cs_pos_esc, cs_pos_fail = get_num_of_av_esc_fail(df, total_trials, 'CS+ Avoidance', 'CS+ Escape')
-        cs_neg_av, cs_neg_esc, cs_neg_fail = get_num_of_av_esc_fail(df, total_trials, 'CS- Avoidance', 'CS- Escape')
+        cs_pos_av, cs_pos_esc, cs_pos_fail = get_num_of_av_esc_fail(df, trials_for_this_file, 'CS+ Avoidance', 'CS+ Escape')
+        cs_neg_av, cs_neg_esc, cs_neg_fail = get_num_of_av_esc_fail(df, trials_for_this_file, 'CS- Avoidance', 'CS- Escape')
         
-        cs_pos_av_perc, cs_pos_esc_perc, cs_pos_fail_perc = get_perc_of_av_esc_fail(cs_pos_av, cs_pos_esc, total_trials)
-        cs_neg_av_perc, cs_neg_esc_perc, cs_neg_fail_perc = get_perc_of_av_esc_fail(cs_neg_av, cs_neg_esc, total_trials)
+        cs_pos_av_perc, cs_pos_esc_perc, cs_pos_fail_perc = get_perc_of_av_esc_fail(cs_pos_av, cs_pos_esc, trials_for_this_file)
+        cs_neg_av_perc, cs_neg_esc_perc, cs_neg_fail_perc = get_perc_of_av_esc_fail(cs_neg_av, cs_neg_esc, trials_for_this_file)
         
         n_shuttl_non_cs = n_shuttl_total - cs_pos_av - cs_neg_av
         
@@ -116,22 +128,31 @@ def process_file(file_path, total_trials, col):
         DI = calculate_DI(cs_pos_av, cs_neg_av)
 
         animal_id = get_animal_id(file_path)
+
+        if trials_for_this_file == 10:
+            cs_pos_entry.append('N/A')
+            cs_pos_exit.append('N/A')
+            cs_pos_latency.append('N/A')
+            cs_neg_entry.append('N/A')
+            cs_neg_exit.append('N/A')
+            cs_neg_latency.append('N/A')
+
         return get_features_df(animal_id, cs_pos_av, cs_pos_esc, cs_pos_fail, cs_pos_av_perc, cs_pos_esc_perc, cs_pos_fail_perc, n_shuttl_total, n_shuttl_non_cs, n_shuttl_per_ten_min_cs_pos, n_shuttl_per_ten_min_non_cs, total_duration, cs_pos_entry, cs_pos_exit, cs_pos_latency, cs_pos_total_duration, cs_pos_avg_latency, cs_neg_av, cs_neg_esc, cs_neg_fail, cs_neg_av_perc, cs_neg_esc_perc, cs_neg_fail_perc, n_shuttl_per_ten_min_cs_neg, cs_neg_entry, cs_neg_exit, cs_neg_latency, cs_neg_total_duration, cs_neg_avg_latency, DI, col)
     except Exception as e:
-        # print(file_path)
         print(file_path.split('\\')[-4].split()[-2], file_path.split('\\')[-3], file_path.split('\\')[-1].split('.')[-2]," -> ", e)
-        # traceback.print_exc()
         return None
 
 def process_gs_data(GS_DIR_PATH):
     """Process data from files in GS_DIR_PATH."""
     # Check if GS_DIR_PATH contains 'SAA'
-    total_trials = 10 if check_saa_in_path(GS_DIR_PATH) else 5
+    total_trials = get_num_trials(GS_DIR_PATH)
+
+    trials_for_col = 5 if total_trials == 5 else 11
 
     # Define column names for the DataFrame
     col = pd.MultiIndex.from_arrays([
-        ['Animal ID'] + ['CS+ #']*3 + ['CS+ %']*3 + ['entry']*total_trials + ['exit']*total_trials + ['latency']*total_trials + ['total CS+'] + ['Avg CS+'] + ['CS- #']*3 + ['CS- %']*3 + ['n[Shuttle]']*2 + ['n[Shuttle]/10m']*3 + ['Total'] + ['entry']*total_trials + ['exit']*total_trials + ['latency']*total_trials + ['total CS-'] + ['Avg CS-'] + ['DI'], 
-        [''] + ['Av', 'Esc', 'Fail']*2 + ['CS+ ' + str(i) for i in range(1, total_trials + 1)]*3 + ['Duration', 'Latency'] + ['Av', 'Esc', 'Fail']*2 + ['Total', 'Non-CS', 'CS+', 'CS-', 'Non-CS'] + ['Duration'] + ['CS- ' + str(i) for i in range(1, total_trials + 1)]*3 + ['Duration', 'Latency', '']
+        ['Animal ID'] + ['CS+ #']*3 + ['CS+ %']*3 + ['entry']*trials_for_col + ['exit']*trials_for_col + ['latency']*trials_for_col + ['total CS+'] + ['Avg CS+'] + ['CS- #']*3 + ['CS- %']*3 + ['n[Shuttle]']*2 + ['n[Shuttle]/10m']*3 + ['Total'] + ['entry']*trials_for_col + ['exit']*trials_for_col + ['latency']*trials_for_col + ['total CS-'] + ['Avg CS-'] + ['DI'], 
+        [''] + ['Av', 'Esc', 'Fail']*2 + ['CS+ ' + str(i) for i in range(1, trials_for_col + 1)]*3 + ['Duration', 'Latency'] + ['Av', 'Esc', 'Fail']*2 + ['Total', 'Non-CS', 'CS+', 'CS-', 'Non-CS'] + ['Duration'] + ['CS- ' + str(i) for i in range(1, trials_for_col + 1)]*3 + ['Duration', 'Latency', '']
     ])
 
     data_df = pd.DataFrame(columns=col)
@@ -149,26 +170,20 @@ def process_gs_data(GS_DIR_PATH):
 
 def add_animal_details(data_df, exp_df, ct, dt):
     """Add animal details from exp_df to data_df based on common identifiers."""
-    try:
-        na_mask = exp_df['SN'].isna() | exp_df['SN'].isnull() # Check for NaN values in SN column
-        start_index = exp_df[~na_mask & exp_df['SN'].str.contains(ct) & exp_df['SN'].str.contains(dt)].index[0] # Get the index of the first non-NaN value in SN column
+    na_mask = exp_df['SN'].isna() | exp_df['SN'].isnull() # Check for NaN values in SN column
+    start_index = exp_df[~na_mask & exp_df['SN'].str.contains(ct) & exp_df['SN'].str.contains(dt)].index[0] # Get the index of the first non-NaN value in SN column
 
-        next_index_with_nan = None
-        for index in range(start_index + 1, len(exp_df)):
-            if exp_df.iloc[index].isnull().all():
-                next_index_with_nan = index
-                break
+    next_index_with_nan = None
+    for index in range(start_index + 1, len(exp_df)):
+        if exp_df.iloc[index].isnull().all():
+            next_index_with_nan = index
+            break
 
-        exp_df = exp_df[start_index+2:next_index_with_nan]
-        exp_df.reset_index(drop=True, inplace=True)
-        exp_df.sort_values(by='Animal', inplace=True)
-        exp_df.columns = pd.MultiIndex.from_arrays([exp_df.columns, ['']*len(exp_df.columns)])
-        exp_df_renamed = exp_df.rename(columns={'Animal': 'Animal ID'})
-    except Exception as e:
-        print(f"Error adding animal details for {ct} {dt}: {e}")
-        # if error occurs, create an empty DataFrame named exp_df_renamed with columns as Animal ID, Sex, Subject ID, Group
-        exp_df_renamed = pd.DataFrame(columns=['Animal ID, Sex, Subject ID, Group'])
-
+    exp_df = exp_df[start_index+2:next_index_with_nan]
+    exp_df.reset_index(drop=True, inplace=True)
+    exp_df.sort_values(by='Animal', inplace=True)
+    exp_df.columns = pd.MultiIndex.from_arrays([exp_df.columns, ['']*len(exp_df.columns)])
+    exp_df_renamed = exp_df.rename(columns={'Animal': 'Animal ID'})
     
     final_df = pd.merge(exp_df_renamed, data_df, on='Animal ID', how='inner')
     final_df = final_df.loc[:, ~final_df.columns.duplicated()]
@@ -201,36 +216,28 @@ def process_and_save_data(PATH, exp_df, ct, dt, add_animal_info=True):
             if add_animal_info:
                 data_df = add_animal_details(data_df, exp_df, ct, dt)
                 data_df.set_index('SN', inplace=True)
-            # data_df.sort_index(inplace=True)
-            # print(subfolder)
-            # print(data_df.columns)
-            # print(GS_DIR_PATH)
-            # data_df.reset_index(inplace=True)
             data_df.style.apply(align_center, axis=0).to_excel(writer, sheet_name=subfolder, index=True)
             
 
     writer.close()
 
 if __name__ == '__main__':
-    # parser = argparse.ArgumentParser(description="Process data from subfolders in a folder and save to Excel.")
-    # parser.add_argument("--path", help="Path to the data folder", type=str, required=True)
-    # parser.add_argument("--exp_details_path", help="Path to the Excel file containing experiment details", type=str, required=True)
-    # args = parser.parse_args()
+    parser = argparse.ArgumentParser(description="Process data from subfolders in a folder and save to Excel.")
+    parser.add_argument("--path", help="Path to the data folder", type=str, required=True)
+    parser.add_argument("--exp_details_path", help="Path to the Excel file containing experiment details", type=str, required=True)
+    args = parser.parse_args()
 
-    PATH = r'C:\Users\hsanghvi\OneDrive - Stony Brook University\Documents\Shrestha Lab\Datasets\WT DSAA'
-    EXP_DETAILS_PATH = r"G:\Shared drives\NBB_ShresthaLab_SharedDrive\LM - Harshil Sanghvi\WT DSAA data\WT DSAA cohorts.xlsx"
-    exp_df = pd.read_excel(EXP_DETAILS_PATH, usecols=[0, 1, 2, 3, 4])
+    exp_df = pd.read_excel(args.exp_details_path, usecols=[0, 1, 2, 3, 4])
     exp_df.columns = ['SN', 'Animal', 'Sex', 'Subject ID', 'Group ']
 
-    for subfolder in tqdm(sorted(os.listdir(PATH)), desc="Processing subfolders", unit="folder"):
+    for subfolder in tqdm(sorted(os.listdir(args.path)), desc="Processing subfolders", unit="folder"):
         ct = subfolder.split()[-2] # if using old WT SAA data, use subfolder.split()[-1]. For newer data following established naming convention, use subfolder.split()[-2]
-        # if 'CT2' in ct:
-        #     continue
+        if 'CT1' in ct:
+            continue
         dt = subfolder.split()[0]
-        GS_DIR_PATH = os.path.join(PATH, subfolder)
+        GS_DIR_PATH = os.path.join(args.path, subfolder)
         try:
             if os.path.isdir(GS_DIR_PATH):
                 process_and_save_data(GS_DIR_PATH, exp_df, ct, dt, add_animal_info=True)
         except Exception as e:
             print(f"Error processing {GS_DIR_PATH}: {e}")
-            # traceback.print_exc()
