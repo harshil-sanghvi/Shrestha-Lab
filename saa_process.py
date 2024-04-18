@@ -60,7 +60,7 @@ def process_file(file_path, total_trials, col):
         temp_df = pd.DataFrame(np.reshape([animal_id, av_count, esc_count, fail_count, av_perc, esc_perc, fail_perc, entry_count, entry_count_non_cs, n_shuttl_per_ten_min_cs, n_shuttl_per_ten_min_non_cs, total_duration] + entry_cs + exit_cs + latency_cs + total_cs_duration + avg_latency, (1, -1)), columns=col)
         return temp_df
     except Exception as e:
-        print(file_path.split('\\')[-4].split()[-1], file_path.split('\\')[-3], " -> ", e)
+        print(file_path.split('\\')[-4].split()[-2], file_path.split('\\')[-3], file_path.split('\\')[-1].split('.')[-2]," -> ", e)
         return None
 
 def process_gs_data(GS_DIR_PATH):
