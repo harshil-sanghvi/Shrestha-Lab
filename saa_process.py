@@ -5,6 +5,7 @@ from pandas import ExcelWriter
 import warnings
 from tqdm import tqdm
 import argparse
+import traceback
 
 warnings.filterwarnings("ignore")
 
@@ -152,4 +153,5 @@ if __name__ == '__main__':
             if os.path.isdir(GS_DIR_PATH):
                 process_and_save_data(GS_DIR_PATH, exp_df, ct, dt)
         except Exception as e:
+            # print(traceback.format_exc()) # Uncomment this line to print traceback to help debug errors
             print(f"Error processing {GS_DIR_PATH}: {e}")
