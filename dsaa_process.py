@@ -196,7 +196,7 @@ def align_center(x):
 def process_and_save_data(PATH, exp_df, ct, dt, add_animal_info=True):
     """Process data in subfolders of PATH and save to Excel."""
     title_split = PATH.split('\\')
-    SAVE_DIR = '\\'.join(title_split[:-3]) + '\\Results'
+    SAVE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'Results')
     if not os.path.exists(SAVE_DIR):
         os.makedirs(SAVE_DIR)
     info = title_split[-1].split()
