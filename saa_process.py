@@ -118,10 +118,17 @@ def align_center(x):
 def process_and_save_data(PATH, exp_df, ct, dt, add_animal_info=True):
     """Process data in subfolders of PATH and save to Excel."""
     title_split = PATH.split('\\')
+    SAVE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'Results')
+    if not os.path.exists(SAVE_DIR):
+        os.makedirs(SAVE_DIR)
     info = title_split[-1].split()
     title = info[1].split('_')[0] + ' ' + (info[1].split('_')[1]).upper() + ' ' + info[2] + ' ' + info[0]
-    output_file = title + '.xlsx'
-    writer = ExcelWriter(output_file)
+    output_file = SAVE_DIR + '\\' + title + '.xlsx'
+    try:
+        writer = ExcelWriter(output_file)
+    except PermissionError:
+        print(f"\nPermission denied to write to {title}.xlsx. This file may be open in another program. Please close the file and try again.")
+        return
 
     for subfolder in sorted(os.listdir(PATH)):
         GS_DIR_PATH = os.path.join(PATH, subfolder)
