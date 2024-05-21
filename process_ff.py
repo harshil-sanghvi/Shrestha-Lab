@@ -78,8 +78,11 @@ class FreezeFrame:
         subfolders = [f for f in os.listdir(self.folder_path) if os.path.isdir(os.path.join(self.folder_path, f))] # get all subfolders
         for subfolder in subfolders: # for each subfolder
             ct = subfolder.split()[-2] # extract the CT from the subfolder name
+            if 'CT1' in ct: # if the CT is CT1
+                continue
             self.ct_df = self.get_cohort_data(ct) # get the cohort data for the CT
             self.process_subfolder(subfolder) # process the FreezeFrame data for the subfolder
+            print(subfolder, 'processed successfully!')
 
     def process_subfolder(self, subfolder):
         '''Function to process the FreezeFrame data for each subfolder.'''
