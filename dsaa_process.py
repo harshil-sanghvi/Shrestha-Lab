@@ -217,7 +217,7 @@ def process_and_save_data(PATH, exp_df, ct, dt, add_animal_info=True):
                 data_df = add_animal_details(data_df, exp_df, ct, dt)
                 data_df.set_index('SN', inplace=True)
             data_df.style.apply(align_center, axis=0).to_excel(writer, sheet_name=subfolder, index=True)
-            
+        print(f'\t{subfolder} processed successfully!')
 
     writer.close()
 
@@ -230,7 +230,7 @@ if __name__ == '__main__':
     exp_df = pd.read_excel(args.exp_details_path, usecols=[0, 1, 2, 3, 4])
     exp_df.columns = ['SN', 'Animal', 'Sex', 'Subject ID', 'Group ']
 
-    for subfolder in tqdm(sorted(os.listdir(args.path)), desc="Processing subfolders", unit="folder"):
+    for subfolder in sorted(os.listdir(args.path)):
         ct = subfolder.split()[-2] # if using old WT SAA data, use subfolder.split()[-1]. For newer data following established naming convention, use subfolder.split()[-2]
         if 'CT1' in ct:
             continue
@@ -239,5 +239,6 @@ if __name__ == '__main__':
         try:
             if os.path.isdir(GS_DIR_PATH):
                 process_and_save_data(GS_DIR_PATH, exp_df, ct, dt, add_animal_info=True)
+                print(f"Data processed successfully for {subfolder}!\n")
         except Exception as e:
             print(f"Error processing {GS_DIR_PATH}: {e}")
