@@ -171,7 +171,7 @@ class FreezeFrame:
             return float(sub_df.mean(axis=1).round(2)) # return the average of the data
         except Exception as e: # if there is an exception, return 0
             print(traceback.format_exc())
-            print(sub_df)
+            # print(sub_df)
             # print('start:', start)
             # print('end:', end)
             print(animal_id, ' -> ', e)
