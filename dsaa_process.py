@@ -3,7 +3,6 @@ import pandas as pd
 import numpy as np
 from pandas import ExcelWriter
 import warnings
-from tqdm import tqdm
 import traceback
 import argparse
 
@@ -81,8 +80,8 @@ def calculate_DI(cs_pos_av, cs_neg_av):
     except ZeroDivisionError:
         return ['N/A']
 
-def get_features_df(animal_id, cs_pos_av, cs_pos_esc, cs_pos_fail, cs_pos_av_perc, cs_pos_esc_perc, cs_pos_fail_perc, n_shuttl_total, n_shuttl_non_cs, n_shuttl_per_ten_min_cs_pos, n_shuttl_per_ten_min_non_cs, total_duration, cs_pos_entry, cs_pos_exit, cs_pos_latency, cs_pos_total_duration, cs_pos_avg_latency, cs_neg_av, cs_neg_esc, cs_neg_fail, cs_neg_av_perc, cs_neg_esc_perc, cs_neg_fail_perc, n_shuttl_per_ten_min_cs_neg, cs_neg_entry, cs_neg_exit, cs_neg_latency, cs_neg_total_duration, cs_neg_avg_latency, di, col):
-    return pd.DataFrame(np.reshape([animal_id, cs_pos_av, cs_pos_esc, cs_pos_fail, cs_pos_av_perc, cs_pos_esc_perc, cs_pos_fail_perc] + cs_pos_entry + cs_pos_exit + cs_pos_latency + cs_pos_total_duration + cs_pos_avg_latency + [cs_neg_av, cs_neg_esc, cs_neg_fail, cs_neg_av_perc, cs_neg_esc_perc, cs_neg_fail_perc, n_shuttl_total, n_shuttl_non_cs, n_shuttl_per_ten_min_cs_pos, n_shuttl_per_ten_min_cs_neg, n_shuttl_per_ten_min_non_cs, total_duration] + cs_neg_entry + cs_neg_exit + cs_neg_latency + cs_neg_total_duration + cs_neg_avg_latency + di, (1, -1)), columns=col)
+def get_features_df(animal_id, cs_pos_av, cs_pos_esc, cs_pos_fail, cs_pos_av_perc, cs_pos_esc_perc, cs_pos_fail_perc, n_shuttl_total, n_shuttl_non_cs, n_shuttl_per_ten_min_cs_pos, n_shuttl_per_ten_min_non_cs, normalized_fraction_shuttling_cs_pos, normalized_fraction_shuttling_cs_neg, normalized_fraction_shuttling_non_cs, total_duration, cs_pos_entry, cs_pos_exit, cs_pos_latency, cs_pos_total_duration, cs_pos_avg_latency, cs_neg_av, cs_neg_esc, cs_neg_fail, cs_neg_av_perc, cs_neg_esc_perc, cs_neg_fail_perc, n_shuttl_per_ten_min_cs_neg, cs_neg_entry, cs_neg_exit, cs_neg_latency, cs_neg_total_duration, cs_neg_avg_latency, di, col):
+    return pd.DataFrame(np.reshape([animal_id, cs_pos_av, cs_pos_esc, cs_pos_fail, cs_pos_av_perc, cs_pos_esc_perc, cs_pos_fail_perc] + cs_pos_entry + cs_pos_exit + cs_pos_latency + cs_pos_total_duration + cs_pos_avg_latency + [cs_neg_av, cs_neg_esc, cs_neg_fail, cs_neg_av_perc, cs_neg_esc_perc, cs_neg_fail_perc, n_shuttl_total, n_shuttl_non_cs, n_shuttl_per_ten_min_cs_pos, n_shuttl_per_ten_min_cs_neg, n_shuttl_per_ten_min_non_cs, normalized_fraction_shuttling_cs_pos, normalized_fraction_shuttling_cs_neg, normalized_fraction_shuttling_non_cs, total_duration] + cs_neg_entry + cs_neg_exit + cs_neg_latency + cs_neg_total_duration + cs_neg_avg_latency + di, (1, -1)), columns=col)
     
 def process_file(file_path, total_trials, col):
     """Process an individual file and extract required data."""
@@ -124,7 +123,16 @@ def process_file(file_path, total_trials, col):
         n_shuttl_per_ten_min_cs_pos = get_n_shuttl_per_ten_min(cs_pos_av, cs_pos_duration)
         n_shuttl_per_ten_min_cs_neg = get_n_shuttl_per_ten_min(cs_neg_av, cs_neg_duration)
         n_shuttl_per_ten_min_non_cs = get_n_shuttl_per_ten_min(n_shuttl_non_cs, total_duration - cs_pos_duration - cs_neg_duration)
+
+        normalized_fraction_shuttling_cs_pos = n_shuttl_per_ten_min_cs_pos / (n_shuttl_per_ten_min_non_cs + n_shuttl_per_ten_min_cs_pos + n_shuttl_per_ten_min_cs_neg)
+        normalized_fraction_shuttling_cs_neg = n_shuttl_per_ten_min_cs_neg / (n_shuttl_per_ten_min_non_cs + n_shuttl_per_ten_min_cs_pos + n_shuttl_per_ten_min_cs_neg)
+        normalized_fraction_shuttling_non_cs = n_shuttl_per_ten_min_non_cs / (n_shuttl_per_ten_min_non_cs + n_shuttl_per_ten_min_cs_pos + n_shuttl_per_ten_min_cs_neg)
            
+        # round to two decimal places
+        normalized_fraction_shuttling_non_cs = round(normalized_fraction_shuttling_non_cs, 2)
+        normalized_fraction_shuttling_cs_pos = round(normalized_fraction_shuttling_cs_pos, 2)
+        normalized_fraction_shuttling_cs_neg = round(normalized_fraction_shuttling_cs_neg, 2)
+
         DI = calculate_DI(cs_pos_av, cs_neg_av)
 
         animal_id = get_animal_id(file_path)
@@ -137,7 +145,7 @@ def process_file(file_path, total_trials, col):
             cs_neg_exit.append('N/A')
             cs_neg_latency.append('N/A')
 
-        return get_features_df(animal_id, cs_pos_av, cs_pos_esc, cs_pos_fail, cs_pos_av_perc, cs_pos_esc_perc, cs_pos_fail_perc, n_shuttl_total, n_shuttl_non_cs, n_shuttl_per_ten_min_cs_pos, n_shuttl_per_ten_min_non_cs, total_duration, cs_pos_entry, cs_pos_exit, cs_pos_latency, cs_pos_total_duration, cs_pos_avg_latency, cs_neg_av, cs_neg_esc, cs_neg_fail, cs_neg_av_perc, cs_neg_esc_perc, cs_neg_fail_perc, n_shuttl_per_ten_min_cs_neg, cs_neg_entry, cs_neg_exit, cs_neg_latency, cs_neg_total_duration, cs_neg_avg_latency, DI, col)
+        return get_features_df(animal_id, cs_pos_av, cs_pos_esc, cs_pos_fail, cs_pos_av_perc, cs_pos_esc_perc, cs_pos_fail_perc, n_shuttl_total, n_shuttl_non_cs, n_shuttl_per_ten_min_cs_pos, n_shuttl_per_ten_min_non_cs, normalized_fraction_shuttling_cs_pos, normalized_fraction_shuttling_cs_neg, normalized_fraction_shuttling_non_cs, total_duration, cs_pos_entry, cs_pos_exit, cs_pos_latency, cs_pos_total_duration, cs_pos_avg_latency, cs_neg_av, cs_neg_esc, cs_neg_fail, cs_neg_av_perc, cs_neg_esc_perc, cs_neg_fail_perc, n_shuttl_per_ten_min_cs_neg, cs_neg_entry, cs_neg_exit, cs_neg_latency, cs_neg_total_duration, cs_neg_avg_latency, DI, col)
     except Exception as e:
         print(file_path.split('\\')[-4].split()[-2], file_path.split('\\')[-3], file_path.split('\\')[-1].split('.')[-2]," -> ", e)
         return None
@@ -151,8 +159,8 @@ def process_gs_data(GS_DIR_PATH):
 
     # Define column names for the DataFrame
     col = pd.MultiIndex.from_arrays([
-        ['Animal ID'] + ['CS+ #']*3 + ['CS+ %']*3 + ['entry']*trials_for_col + ['exit']*trials_for_col + ['latency']*trials_for_col + ['total CS+'] + ['Avg CS+'] + ['CS- #']*3 + ['CS- %']*3 + ['n[Shuttle]']*2 + ['n[Shuttle]/10m']*3 + ['Total'] + ['entry']*trials_for_col + ['exit']*trials_for_col + ['latency']*trials_for_col + ['total CS-'] + ['Avg CS-'] + ['DI'], 
-        [''] + ['Av', 'Esc', 'Fail']*2 + ['CS+ ' + str(i) for i in range(1, trials_for_col + 1)]*3 + ['Duration', 'Latency'] + ['Av', 'Esc', 'Fail']*2 + ['Total', 'Non-CS', 'CS+', 'CS-', 'Non-CS'] + ['Duration'] + ['CS- ' + str(i) for i in range(1, trials_for_col + 1)]*3 + ['Duration', 'Latency', '']
+        ['Animal ID'] + ['CS+ #']*3 + ['CS+ %']*3 + ['entry']*trials_for_col + ['exit']*trials_for_col + ['latency']*trials_for_col + ['total CS+'] + ['Avg CS+'] + ['CS- #']*3 + ['CS- %']*3 + ['n[Shuttle]']*2 + ['n[Shuttle]/10m']*3 + ['Normalized Fraction Shuttling']*3 + ['Total'] + ['entry']*trials_for_col + ['exit']*trials_for_col + ['latency']*trials_for_col + ['total CS-'] + ['Avg CS-'] + ['DI'], 
+        [''] + ['Av', 'Esc', 'Fail']*2 + ['CS+ ' + str(i) for i in range(1, trials_for_col + 1)]*3 + ['Duration', 'Latency'] + ['Av', 'Esc', 'Fail']*2 + ['Total', 'Non-CS', 'CS+', 'CS-', 'Non-CS', 'CS+', 'CS-', 'Non-CS'] + ['Duration'] + ['CS- ' + str(i) for i in range(1, trials_for_col + 1)]*3 + ['Duration', 'Latency', '']
     ])
 
     data_df = pd.DataFrame(columns=col)
