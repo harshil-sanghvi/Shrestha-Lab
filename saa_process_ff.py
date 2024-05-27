@@ -57,8 +57,15 @@ class FreezeFrame:
         subfolders = [f for f in os.listdir(self.folder_path) if os.path.isdir(os.path.join(self.folder_path, f))] # get all subfolders
         for subfolder in subfolders: # for each subfolder
             ct = subfolder.split()[-2] # extract the CT from the subfolder name
+            print('\n=============================', ct, '=============================')
             self.ct_df = self.get_cohort_data(ct) # get the cohort data for the CT
-            self.process_subfolder(subfolder) # process the FreezeFrame data for the subfolder
+            try:
+                self.process_subfolder(subfolder) # process the FreezeFrame data for the subfolder
+            except Exception as e: # if there is an exception, print the exception
+                if str(e) == "At least one sheet must be visible":
+                    print('No proper sheets found in the file. Skipping... Please check the file.')
+                else:
+                    print(ct, ' -> ', e)
 
     def process_subfolder(self, subfolder):
         '''Function to process the FreezeFrame data for each subfolder.'''
@@ -68,17 +75,13 @@ class FreezeFrame:
         for file in os.listdir(os.path.join(self.folder_path, subfolder)): # for each file in the subfolder
             sheet_name = file.split('\\')[-1].split('.')[-2].split('_')[-1] # extract the sheet name
             if file.endswith('.csv'): # if the file is a CSV file
-                # print(sheet_name)
-                # print(subfolder)
-                # print(file)
-                # print('LTM' in sheet_name)
-                # print('SAA' in sheet_name)
                 if 'SAA' not in sheet_name and 'LTM' not in sheet_name: # if the sheet name does not contain 'CT' or 'LTM'
-                    print('Skipping:', sheet_name)
+                    print('\nSkipping:', sheet_name)
                     continue
+
+                print('\nProcessing: ', sheet_name)
                 file_path = os.path.join(self.folder_path, subfolder, file) # set the file path
                 data = self.process_file(file_path, sheet_name, ct) # process the FreezeFrame data
-                # print(data)
                 final = pd.merge(self.ct_df, data, on='Animal ID', how='inner') # merge the cohort data with the FreezeFrame data
                 final.style.apply(self.align_center, axis=0).to_excel(writer, sheet_name=sheet_name, index=True) # write the data to the Excel file
                 print('File #', self.counter, ' processed: ', file)
@@ -102,44 +105,11 @@ class FreezeFrame:
     
     def process_experiment(self, ff_df, experiment_name, ct):
         '''Function to process the FreezeFrame data for the given timestamps.'''
-        # pre_cs_start, pre_cs_end = self.extract_timestamps(timestamps, 'Pre-CS') # extract the start and end timestamps for Pre-CS
-        # cs_plus_start, cs_plus_end = self.extract_timestamps(timestamps, r'CS\+') # extract the start and end timestamps for CS+
-        # cs_minus_start, cs_minus_end = self.extract_timestamps(timestamps, r'CS\-') # extract the start and end timestamps for CS-
-        # iti_start, iti_end = self.extract_timestamps(timestamps, 'ITI') # extract the start and end timestamps for ITI
-        # post_cs_start, post_cs_end = self.extract_timestamps(timestamps, 'Post-CS') # extract the start and end timestamps for Post-CS
-        # print('\n\n\n')
-        # # print(self.timestamps)
-        # print('\n\n\n')
-        # # print(self.timestamps[ct])
-        # print('\n\n\n')
-        # print(self.timestamps[ct][experiment_name])
-        # print('\n\n\n')
-        # print(self.timestamps[ct][experiment_name]['onset'])
-        # print('\n\n\n')
-        cs_start, cs_end = self.timestamps[ct][experiment_name]['onset'], self.timestamps[ct][experiment_name]['offset']
-        # convert to list of int
-        # cs_start = [int(float(i)) for i in cs_start]
-        # cs_end = [int(float(i)) for i in cs_end]
-        # print(len(cs_start))
+        cs_start, cs_end = self.timestamps[ct][experiment_name]['onset'], self.timestamps[ct][experiment_name]['offset']    
         df = pd.DataFrame(columns=self.get_cols(len(cs_start)+1))
-        print('Experiment:', experiment_name)
-        print('Animal IDs:', ff_df.iloc[1:, 0])
+    
         for animal_id in ff_df.iloc[1:, 0]: # for each animal ID
             threshold = ff_df[ff_df.iloc[:, 0].astype(str).str.contains(str(animal_id))].loc[:, 'Threshold'].values[0] # extract the threshold
-            # pre_cs = [self.get_ff_avg(animal_id, start, end, ff_df) for start, end in zip(pre_cs_start, pre_cs_end)] # extract the average of the FreezeFrame data for Pre-CS
-            # cs_plus = [self.get_ff_avg(animal_id, start, end, ff_df) for start, end in zip(cs_plus_start, cs_plus_end)] # extract the average of the FreezeFrame data for CS+
-            # cs_minus = [self.get_ff_avg(animal_id, start, end, ff_df) for start, end in zip(cs_minus_start, cs_minus_end)] # extract the average of the FreezeFrame data for CS-
-            # iti = [self.get_ff_avg(animal_id, start, end, ff_df) for start, end in zip(iti_start, iti_end)] # extract the average of the FreezeFrame data for ITI
-            # post_cs = [self.get_ff_avg(animal_id, start, end, ff_df) for start, end in zip(post_cs_start, post_cs_end)] # extract the average of the FreezeFrame data for Post-CS
-            # mean_cs_plus = round(np.mean(cs_plus), 2) # calculate the mean of the CS+ data
-            # mean_cs_minus = round(np.mean(cs_minus), 2) # calculate the mean of the CS- data
-            # di = self.calculate_di(mean_cs_plus, mean_cs_minus) # calculate the D.I.
-            # mean_iti = round(np.mean(iti), 2) # calculate the mean of the ITI data
-            print('Animal ID:', animal_id)
-            print('Experiment:', experiment_name)
-            print('CT:', ct)
-            print('Start:', cs_start)
-            print('End:', cs_end)
             cs = [self.get_ff_avg(animal_id, start, end, ff_df) for start, end in zip(cs_start, cs_end)]
             mean_cs = round(np.mean(cs), 2)
 
@@ -153,12 +123,6 @@ class FreezeFrame:
             return round((mean_cs_plus - mean_cs_minus) / (mean_cs_plus + mean_cs_minus), 2) # return the D.I.
         except ZeroDivisionError: # if there is a ZeroDivisionError, return 'N/A'
             return 'N/A'
-        
-    # def extract_timestamps(self, timestamps, label):
-    #     '''Function to extract the start and end timestamps for the given label.'''
-    #     start = timestamps[timestamps['Epoch'].str.contains(label)]['Onset'].values # extract the start timestamps
-    #     end = timestamps[timestamps['Epoch'].str.contains(label)]['Offset'].values # extract the end timestamps
-    #     return start, end # return the start and end timestamps
 
     def get_ff_avg(self, animal_id, start, end, ff_df):
         '''Function to calculate the average of the FreezeFrame data for the given animal ID for the given start and end timestamps.'''
@@ -170,13 +134,11 @@ class FreezeFrame:
             sub_df = sub_df.apply(lambda x: x.str.strip() if x.dtype == 'object' else x).replace("NaN", 0).apply(pd.to_numeric, errors='coerce') # clean the data by first stripping the strings, replacing "NaN" with 0, and converting the data to numeric
             return float(sub_df.mean(axis=1).round(2)) # return the average of the data
         except Exception as e: # if there is an exception, return 0
-            print(traceback.format_exc())
-            # print(sub_df)
-            # print('start:', start)
-            # print('end:', end)
-            print(animal_id, ' -> ', e)
-            sys.exit()
-            return 0
+            if str(e) == "cannot convert the series to <class 'float'>":
+                print('Multiple entries for animal ID: ', animal_id)
+            else:
+                print('Animal ID: ', animal_id, ' -> ', e)
+            return 999
         
     def parse_sheet(self, xlsx, sheet):
         '''Function to parse the sheet and extract the data.'''
@@ -201,28 +163,20 @@ class FreezeFrame:
         return all_data
 
 def main():
-    # '''Function to parse the command line arguments and process the FreezeFrame data.'''
-    # parser = argparse.ArgumentParser(description='Process FreezeFrame data')
-    # parser.add_argument('--timestamps', type=str, required=True, help='Path to the timestamps file')
-    # parser.add_argument('--ct', type=str, required=True, help='Path to the CT file')
-    # parser.add_argument('--folder', type=str, required=True, help='Path to the folder containing the FreezeFrame data')
-    # parser.add_argument('--output', type=str, required=True, help='Path to the output folder')
-    # args = parser.parse_args()
-    # timestamps_path = args.timestamps
-    # ct_path = args.ct
-    # folder_path = args.folder
-    # output_path = args.output
-    timestamps_path = r"G:\Shared drives\NBB_ShresthaLab_SharedDrive\LM - Harshil Sanghvi\Experiment Results [With Added Features] 20240409\PL_SIStag.TSC SAA"
-    ct_path = r"G:\Shared drives\NBB_ShresthaLab_SharedDrive\LM - Harshil Sanghvi\PL_SIStag.TSC SAA Freezeframe\PL_SIStag.TSC SAA cohorts.xlsx"
-    folder_path = r"G:\Shared drives\NBB_ShresthaLab_SharedDrive\LM - Harshil Sanghvi\PL_SIStag.TSC SAA Freezeframe"
-    output_path = r"C:\Users\Harshil\OneDrive - Stony Brook University\Documents\Shrestha Lab\FF Results"
-
+    '''Function to parse the command line arguments and process the FreezeFrame data.'''
+    parser = argparse.ArgumentParser(description='Process FreezeFrame data')
+    parser.add_argument('--timestamps', type=str, required=True, help='Path to the timestamps file')
+    parser.add_argument('--ct', type=str, required=True, help='Path to the CT file')
+    parser.add_argument('--folder', type=str, required=True, help='Path to the folder containing the FreezeFrame data')
+    parser.add_argument('--output', type=str, required=True, help='Path to the output folder')
+    args = parser.parse_args()
+    timestamps_path = args.timestamps
+    ct_path = args.ct
+    folder_path = args.folder
+    output_path = args.output
+    
     ff = FreezeFrame(timestamps_path, ct_path, folder_path, output_path) # create a FreezeFrame object
-    # ff.process_sheets()
-    # ff.process_timestamps() # process the timestamps file
     ff.process_folder() # process the folder containing the FreezeFrame data
-
-    # read all xlsx files in folder path mentioned in timestamps_path
 
 # Run the main function
 if __name__ == '__main__':
