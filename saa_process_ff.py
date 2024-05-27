@@ -5,7 +5,6 @@ from pandas import ExcelWriter
 import warnings
 import traceback
 import sys
-from collections import defaultdict
 import argparse
 
 warnings.filterwarnings("ignore")
@@ -99,7 +98,6 @@ class FreezeFrame:
     def process_file(self, file_path, experiment_name, ct):
         '''Function to process the FreezeFrame data for each file.'''
         ff_df = pd.read_csv(file_path, header=1) # read the CSV file
-        # print('Animal IDs:', ff_df.iloc[1:, 0])
         ff_df.columns = self.clean_columns(list(ff_df.columns)) # clean the column names
         return self.process_experiment(ff_df, experiment_name, ct)
     
@@ -127,13 +125,12 @@ class FreezeFrame:
     def get_ff_avg(self, animal_id, start, end, ff_df):
         '''Function to calculate the average of the FreezeFrame data for the given animal ID for the given start and end timestamps.'''
         try:
-            # print(ff_df.columns)
             first_column_str = ff_df.iloc[:, 0].astype(str)
             matches_exact_animal_id = first_column_str == animal_id
             sub_df = ff_df.loc[matches_exact_animal_id, int(start):int(end)]
             sub_df = sub_df.apply(lambda x: x.str.strip() if x.dtype == 'object' else x).replace("NaN", 0).apply(pd.to_numeric, errors='coerce') # clean the data by first stripping the strings, replacing "NaN" with 0, and converting the data to numeric
             return float(sub_df.mean(axis=1).round(2)) # return the average of the data
-        except Exception as e: # if there is an exception, return 0
+        except Exception as e: # if there is an exception, return 999
             if str(e) == "cannot convert the series to <class 'float'>":
                 print('Multiple entries for animal ID: ', animal_id)
             else:
