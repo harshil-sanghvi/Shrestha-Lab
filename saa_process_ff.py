@@ -109,7 +109,7 @@ class FreezeFrame:
         for animal_id in ff_df.iloc[1:, 0]: # for each animal ID
             threshold = ff_df[ff_df.iloc[:, 0].astype(str).str.contains(str(animal_id))].loc[:, 'Threshold'].values[0] # extract the threshold
             cs = [self.get_ff_avg(animal_id, start, end, ff_df) for start, end in zip(cs_start, cs_end)]
-            mean_cs = round(np.mean(cs), 2)
+            mean_cs = round(np.mean([c for c in cs if c != 999 and c != 'NA']), 2) # calculate the mean of the CS 
 
             data = [animal_id.split()[-1], threshold, *cs, mean_cs]
             df = pd.concat([df, pd.DataFrame([data], columns=self.get_cols(len(cs_start)+1))], ignore_index=True) # concatenate the data to the DataFrame
@@ -133,9 +133,10 @@ class FreezeFrame:
         except Exception as e: # if there is an exception, return 999
             if str(e) == "cannot convert the series to <class 'float'>":
                 print('Multiple entries for animal ID: ', animal_id)
+                return 999
             else:
                 print('Animal ID: ', animal_id, ' -> ', e)
-            return 999
+                return 'NA'
         
     def parse_sheet(self, xlsx, sheet):
         '''Function to parse the sheet and extract the data.'''
@@ -171,7 +172,7 @@ def main():
     ct_path = args.ct
     folder_path = args.folder
     output_path = args.output
-    
+
     ff = FreezeFrame(timestamps_path, ct_path, folder_path, output_path) # create a FreezeFrame object
     ff.process_folder() # process the folder containing the FreezeFrame data
 
