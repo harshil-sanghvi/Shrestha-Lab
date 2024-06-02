@@ -55,6 +55,8 @@ class FreezeFrame:
         '''Function to process the folder containing the FreezeFrame data.'''
         subfolders = [f for f in os.listdir(self.folder_path) if os.path.isdir(os.path.join(self.folder_path, f))] # get all subfolders
         for subfolder in subfolders: # for each subfolder
+            if 'Archive' in subfolder: # if the subfolder contains 'Archive', skip it
+                continue
             ct = subfolder.split()[-2] # extract the CT from the subfolder name
             print('\n=============================', ct, '=============================')
             self.ct_df = self.get_cohort_data(ct) # get the cohort data for the CT
@@ -82,6 +84,8 @@ class FreezeFrame:
                 file_path = os.path.join(self.folder_path, subfolder, file) # set the file path
                 data = self.process_file(file_path, sheet_name, ct) # process the FreezeFrame data
                 final = pd.merge(self.ct_df, data, on='Animal ID', how='inner') # merge the cohort data with the FreezeFrame data
+                if 'CT1' == ct:
+                    print(final)
                 final.style.apply(self.align_center, axis=0).to_excel(writer, sheet_name=sheet_name, index=True) # write the data to the Excel file
                 print('File #', self.counter, ' processed: ', file)
                 self.counter += 1
@@ -142,8 +146,12 @@ class FreezeFrame:
         '''Function to parse the sheet and extract the data.'''
         df = xlsx.parse(sheet)
         vals = {}
-        vals['onset'] = list(df.loc[2, 'entry':'exit'][:-1].values)
-        vals['offset'] = list(df.loc[2, 'exit':'latency'][:-1].values)
+        try:
+            vals['onset'] = list(df.loc[2, 'entry':'exit'][:-1].values)
+            vals['offset'] = list(df.loc[2, 'exit':'latency'][:-1].values)
+        except KeyError:
+            print('No data in the sheet: ', sheet)
+            return None
         return vals
     
     def process_sheets(self):
@@ -155,7 +163,7 @@ class FreezeFrame:
                 if 'CT' not in ct:
                     continue
                 xlsx = pd.ExcelFile(os.path.join(self.timestamps_path, file))
-                dfs = {sheet: self.parse_sheet(xlsx, sheet) for sheet in xlsx.sheet_names}
+                dfs = {sheet.upper() : self.parse_sheet(xlsx, sheet) for sheet in xlsx.sheet_names}
                 all_data[ct] = dfs
 
         return all_data
