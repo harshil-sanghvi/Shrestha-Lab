@@ -3,10 +3,10 @@ import pandas as pd
 from tqdm import tqdm
 import argparse
 
-def gen_summary(path):
+def gen_summary(path, output_path):
     """Generate summary Excel file from multiple Excel files."""
     files = os.listdir(path) # Get all files in the folder
-    files = [f for f in files if f.endswith('.xlsx') and f != 'Summary.xlsx'] # Filter out non-Excel files
+    files = [f for f in files if f.endswith('.xlsx') and 'Summary' not in f] # Filter out files that are not Excel files and files that contain 'Summary
     data = {} # Dictionary to store data from each sheet in each Excel file
     for file in tqdm(files, desc='Processing files', unit='file'): # Loop through each Excel file
         file_path = os.path.join(path, file) # Get the full path of the file
@@ -19,7 +19,7 @@ def gen_summary(path):
             data[sheet_name] = data.get(sheet_name, pd.DataFrame()) # Initialize an empty DataFrame if the sheet name is not in the dictionary
             data[sheet_name] = pd.concat([data[sheet_name], df], axis=0) # Concatenate the data from the sheet to the DataFrame in the dictionary
 
-    with pd.ExcelWriter(os.path.join(path, 'Summary.xlsx')) as writer: # Write the data to a new Excel file
+    with pd.ExcelWriter(os.path.join(output_path, 'Summary.xlsx')) as writer: # Write the data to a new Excel file
         for sheet_name, df in data.items(): # Loop through each sheet in the dictionary
             modified_columns = [((' ' if col[0].startswith('Unnamed') else col[0]),  
                                 (' ' if col[1].startswith('Unnamed') else col[1])) for col in df.columns] # Modify column names
@@ -36,6 +36,7 @@ def gen_summary(path):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Generate summary Excel file from multiple Excel files.') # Create an argument parser
-    parser.add_argument('path', type=str, help='Path to the folder containing Excel files.') # Add an argument for the path to the folder
+    parser.add_argument('--folder', type=str, help='Path to the folder containing Excel files.') # Add an argument for the path to the folder
+    parser.add_argument('--output', type=str, help='Path to the output folder.') # Add an argument for the output path
     args = parser.parse_args() # Parse the arguments
-    gen_summary(args.path) # Generate the summary Excel file
+    gen_summary(args.folder, args.output) # Call the gen_summary function with the provided arguments
