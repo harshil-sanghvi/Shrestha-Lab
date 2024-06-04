@@ -84,8 +84,6 @@ class FreezeFrame:
                 file_path = os.path.join(self.folder_path, subfolder, file) # set the file path
                 data = self.process_file(file_path, sheet_name, ct) # process the FreezeFrame data
                 final = pd.merge(self.ct_df, data, on='Animal ID', how='inner') # merge the cohort data with the FreezeFrame data
-                if 'CT1' == ct:
-                    print(final)
                 final.style.apply(self.align_center, axis=0).to_excel(writer, sheet_name=sheet_name, index=True) # write the data to the Excel file
                 print('File #', self.counter, ' processed: ', file)
                 self.counter += 1
