@@ -67,6 +67,8 @@ class FreezeFrame:
                     print('No proper sheets found in the file. Skipping... Please check the file.')
                 else:
                     print(ct, ' -> ', e)
+                    print(traceback.format_exc())
+                    sys.exit()
 
     def process_subfolder(self, subfolder):
         '''Function to process the FreezeFrame data for each subfolder.'''
@@ -105,11 +107,17 @@ class FreezeFrame:
     
     def process_experiment(self, ff_df, experiment_name, ct):
         '''Function to process the FreezeFrame data for the given timestamps.'''
-        cs_start, cs_end = self.timestamps[ct][experiment_name]['onset'], self.timestamps[ct][experiment_name]['offset']    
-        df = pd.DataFrame(columns=self.get_cols(len(cs_start)+1))
+        cs_start_len = len(self.timestamps[ct][experiment_name][list(self.timestamps[ct][experiment_name].keys())[0]]['onset']) # get the length of the CS start timestamps
+        df = pd.DataFrame(columns=self.get_cols(cs_start_len+1))
     
         for animal_id in ff_df.iloc[1:, 0]: # for each animal ID
             threshold = ff_df[ff_df.iloc[:, 0].astype(str).str.contains(str(animal_id))].loc[:, 'Threshold'].values[0] # extract the threshold
+            try:
+                cs_start = self.timestamps[ct][experiment_name][animal_id]['onset'] # extract the CS start timestamps
+            except KeyError:
+                print('Animal ID: ', animal_id, ' in CT: ', ct, ' not found in the timestamps file. Skipping...')
+                continue
+            cs_end = self.timestamps[ct][experiment_name][animal_id]['offset'] # extract the CS end timestamps
             cs = [self.get_ff_avg(animal_id, start, end, ff_df) for start, end in zip(cs_start, cs_end)]
             mean_cs = round(np.mean([c for c in cs if c != 999 and c != 'NA']), 2) # calculate the mean of the CS 
 
@@ -145,8 +153,11 @@ class FreezeFrame:
         df = xlsx.parse(sheet)
         vals = {}
         try:
-            vals['onset'] = list(df.loc[2, 'entry':'exit'][:-1].values)
-            vals['offset'] = list(df.loc[2, 'exit':'latency'][:-1].values)
+            animal_ids = list(df.iloc[2:, 1].values)
+            onsets = list(df.loc[2:, 'entry':'exit'].iloc[:, :-1].values)
+            offsets = list(df.loc[2:, 'exit':'latency'].iloc[:, :-1].values)
+            for animal_id, onset, offset in zip(animal_ids, onsets, offsets):
+                vals[animal_id] = {'onset': list(onset), 'offset': list(offset)}
         except KeyError:
             print('No data in the sheet: ', sheet)
             return None
