@@ -125,13 +125,6 @@ class FreezeFrame:
             df = pd.concat([df, pd.DataFrame([data], columns=self.get_cols(len(cs_start)+1))], ignore_index=True) # concatenate the data to the DataFrame
         return df # return the DataFrame
 
-    def calculate_di(self, mean_cs_plus, mean_cs_minus):
-        '''Function to calculate the D.I.'''
-        try: # try to calculate the D.I.
-            return round((mean_cs_plus - mean_cs_minus) / (mean_cs_plus + mean_cs_minus), 2) # return the D.I.
-        except ZeroDivisionError: # if there is a ZeroDivisionError, return 'N/A'
-            return 'N/A'
-
     def get_ff_avg(self, animal_id, start, end, ff_df):
         '''Function to calculate the average of the FreezeFrame data for the given animal ID for the given start and end timestamps.'''
         try:
