@@ -18,7 +18,7 @@ class FreezeFrame:
         self.output_path = output_path
         self.output = self.output_path
         self.timestamps = self.process_sheets()
-        print(self.timestamps)
+        # print(self.timestamps)
         self.counter = 0
 
     def get_cols(self, num_of_cs):
@@ -59,7 +59,8 @@ class FreezeFrame:
             if 'Archive' in subfolder: # if the subfolder contains 'Archive', skip it
                 continue
             ct = subfolder.split()[-2] # extract the CT from the subfolder name
-            if 'CT4' in ct: # if the CT is CT4, skip it
+            # skip CT4, CT6, CT7, CT8
+            if ct in ['CT4', 'CT6', 'CT7', 'CT8']:
                 continue
             print('\n=============================', ct, '=============================')
             self.ct_df = self.get_cohort_data(ct) # get the cohort data for the CT
@@ -73,6 +74,7 @@ class FreezeFrame:
                     if type(e) == KeyError:
                         print(f'{e} not found in the timestamps file for CT: {ct}. Skipping...')
                     else:
+                        print(traceback.format_exc())
                         print(f'{ct} -> {e}')
 
     def process_subfolder(self, subfolder):
@@ -91,6 +93,8 @@ class FreezeFrame:
                 file_path = os.path.join(self.folder_path, subfolder, file) # set the file path
                 data = self.process_file(file_path, sheet_name, ct) # process the FreezeFrame data
                 final = pd.merge(self.ct_df, data, on='Animal ID', how='inner') # merge the cohort data with the FreezeFrame data
+                # increment index by 1
+                final.index += 1
                 final.style.apply(self.align_center, axis=0).to_excel(writer, sheet_name=sheet_name, index=True) # write the data to the Excel file
                 print('File #', self.counter, ' processed: ', file)
                 self.counter += 1
@@ -113,7 +117,14 @@ class FreezeFrame:
     def process_experiment(self, ff_df, experiment_name, ct):
         '''Function to process the FreezeFrame data for the given timestamps.'''
         experiment_name = experiment_name.upper()
-        cs_start_len = len(self.timestamps[ct][experiment_name][list(self.timestamps[ct][experiment_name].keys())[0]]['onset']['cs_plus']) # get the length of the CS start timestamps
+        try:
+            cs_start_len = len(self.timestamps[ct][experiment_name][list(self.timestamps[ct][experiment_name].keys())[0]]['onset']['cs_plus']) # get the length of the CS start timestamps
+        except IndexError:
+            print('No data found for CT: ', ct, ' and experiment: ', experiment_name)
+            # return empty DataFrame; if LTM in the experiment name, then return with 6 columns else 12 columns
+            return pd.DataFrame(columns=self.get_cols(6 if 'LTM' in experiment_name else 11))
+            
+        
         df = pd.DataFrame(columns=self.get_cols(cs_start_len+1))
     
         for animal_id in ff_df.iloc[1:, 0]: # for each animal ID
@@ -167,9 +178,14 @@ class FreezeFrame:
         try:
             animal_ids = list(df.iloc[2:, 1].values)
             cs_plus_onsets = list(df.loc[2:, 'entry':'exit'].iloc[:, :-1].values)
+            # check for nan. if they are present, then remove them
+            cs_plus_onsets = [[i for i in sublist if not pd.isnull(i)] for sublist in cs_plus_onsets]
             cs_plus_offsets = list(df.loc[2:, 'exit':'latency'].iloc[:, :-1].values)
+            cs_plus_offsets = [[i for i in sublist if not pd.isnull(i)] for sublist in cs_plus_offsets]
             cs_minus_onsets = list(df.loc[2:, 'entry.1':'exit.1'].iloc[:, :-1].values)
+            cs_minus_onsets = [[i for i in sublist if not pd.isnull(i)] for sublist in cs_minus_onsets]
             cs_minus_offsets = list(df.loc[2:, 'exit.1':'latency.1'].iloc[:, :-1].values)
+            cs_minus_offsets = [[i for i in sublist if not pd.isnull(i)] for sublist in cs_minus_offsets]
             for animal_id, cs_plus_onset, cs_plus_offset, cs_minus_onset, cs_minus_offset in zip(animal_ids, cs_plus_onsets, cs_plus_offsets, cs_minus_onsets, cs_minus_offsets):
                 vals[animal_id] = {'onset': {'cs_plus': list(cs_plus_onset), 'cs_minus': list(cs_minus_onset)}, 'offset': {'cs_plus': list(cs_plus_offset), 'cs_minus': list(cs_minus_offset)}}
         except KeyError:
