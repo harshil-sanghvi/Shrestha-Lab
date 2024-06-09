@@ -18,7 +18,6 @@ class FreezeFrame:
         self.output_path = output_path
         self.output = self.output_path
         self.timestamps = self.process_sheets()
-        # print(self.timestamps)
         self.counter = 0
 
     def get_cols(self, num_of_cs):
@@ -59,8 +58,7 @@ class FreezeFrame:
             if 'Archive' in subfolder: # if the subfolder contains 'Archive', skip it
                 continue
             ct = subfolder.split()[-2] # extract the CT from the subfolder name
-            # skip CT4, CT6, CT7, CT8
-            if ct in ['CT4', 'CT6', 'CT7', 'CT8']:
+            if ct in ['CT4']:
                 continue
             print('\n=============================', ct, '=============================')
             self.ct_df = self.get_cohort_data(ct) # get the cohort data for the CT
@@ -93,7 +91,6 @@ class FreezeFrame:
                 file_path = os.path.join(self.folder_path, subfolder, file) # set the file path
                 data = self.process_file(file_path, sheet_name, ct) # process the FreezeFrame data
                 final = pd.merge(self.ct_df, data, on='Animal ID', how='inner') # merge the cohort data with the FreezeFrame data
-                # increment index by 1
                 final.index += 1
                 final.style.apply(self.align_center, axis=0).to_excel(writer, sheet_name=sheet_name, index=True) # write the data to the Excel file
                 print('File #', self.counter, ' processed: ', file)
@@ -209,20 +206,16 @@ class FreezeFrame:
 
 def main():
     '''Function to parse the command line arguments and process the FreezeFrame data.'''
-    # parser = argparse.ArgumentParser(description='Process FreezeFrame data')
-    # parser.add_argument('--timestamps', type=str, required=True, help='Path to the timestamps file')
-    # parser.add_argument('--ct', type=str, required=True, help='Path to the CT file')
-    # parser.add_argument('--folder', type=str, required=True, help='Path to the folder containing the FreezeFrame data')
-    # parser.add_argument('--output', type=str, required=True, help='Path to the output folder')
-    # args = parser.parse_args()
-    # timestamps_path = args.timestamps
-    # ct_path = args.ct
-    # folder_path = args.folder
-    # output_path = args.output
-    timestamps_path = r"G:\Shared drives\NBB_ShresthaLab_SharedDrive\LM - Harshil Sanghvi\OUTPUT  Experiment Results\WT DSAA"
-    ct_path = r"G:\Shared drives\NBB_ShresthaLab_SharedDrive\LM - Harshil Sanghvi\DSAA\WT DSAA data Freezeframe\WT DSAA cohorts.xlsx"
-    folder_path = r"G:\Shared drives\NBB_ShresthaLab_SharedDrive\LM - Harshil Sanghvi\DSAA\WT DSAA data Freezeframe"
-    output_path = r"C:\Users\Harshil\OneDrive - Stony Brook University\Documents\Shrestha Lab\Experiments\WT DSAA data Freezeframe"
+    parser = argparse.ArgumentParser(description='Process FreezeFrame data')
+    parser.add_argument('--timestamps', type=str, required=True, help='Path to the timestamps file')
+    parser.add_argument('--ct', type=str, required=True, help='Path to the CT file')
+    parser.add_argument('--folder', type=str, required=True, help='Path to the folder containing the FreezeFrame data')
+    parser.add_argument('--output', type=str, required=True, help='Path to the output folder')
+    args = parser.parse_args()
+    timestamps_path = args.timestamps
+    ct_path = args.ct
+    folder_path = args.folder
+    output_path = args.output
 
     ff = FreezeFrame(timestamps_path, ct_path, folder_path, output_path) # create a FreezeFrame object
     ff.process_folder() # process the folder containing the FreezeFrame data
