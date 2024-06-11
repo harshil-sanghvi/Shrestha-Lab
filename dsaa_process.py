@@ -179,7 +179,10 @@ def process_gs_data(GS_DIR_PATH):
 def add_animal_details(data_df, exp_df, ct, dt):
     """Add animal details from exp_df to data_df based on common identifiers."""
     na_mask = exp_df['SN'].isna() | exp_df['SN'].isnull() # Check for NaN values in SN column
-    start_index = exp_df[~na_mask & exp_df['SN'].str.contains(ct) & exp_df['SN'].str.contains(dt)].index[0] # Get the index of the first non-NaN value in SN column
+    try:
+        start_index = exp_df[~na_mask & exp_df['SN'].str.contains(ct) & exp_df['SN'].str.contains(dt)].index[0] # Get the index of the first non-NaN value in SN column
+    except IndexError:
+        raise Exception(f"Could not find the start index for {ct} {dt}. Please check the experiment details file and look specifically for the row before the actual data starts. If the issue persists, try debugging by comparing the format of experiment details file with the format adhered to in the script.")
 
     next_index_with_nan = None
     for index in range(start_index + 1, len(exp_df)):
@@ -218,14 +221,26 @@ def process_and_save_data(PATH, exp_df, ct, dt, add_animal_info=True):
 
     for subfolder in sorted(os.listdir(PATH)):
         GS_DIR_PATH = os.path.join(PATH, subfolder)
+        wasSuccessful = True
         if os.path.isdir(GS_DIR_PATH) and ('SAA' in subfolder.upper() or 'LTM' in subfolder.upper()):
             GS_DIR_PATH = os.path.join(GS_DIR_PATH, 'csv files')
             data_df = process_gs_data(GS_DIR_PATH)  # Assuming process_data is defined elsewhere
             if add_animal_info:
                 data_df = add_animal_details(data_df, exp_df, ct, dt)
                 data_df.set_index('SN', inplace=True)
-            data_df.style.apply(align_center, axis=0).to_excel(writer, sheet_name=subfolder, index=True)
-        print(f'\t{subfolder} processed successfully!')
+            try:
+                data_df.style.apply(align_center, axis=0).to_excel(writer, sheet_name=subfolder, index=True)
+            except Exception as e:
+                # if type of error is keyerror then print that most likely it is that there are multiple CSV files for same animal ID in experiment subfolder
+                if isinstance(e, KeyError):
+                    print(f"Most likely there are multiple CSV files for the same animal ID in the experiment {subfolder}. Please check the data and try again. If the issue persists, try debugging by printing columns and index of the data_df.")
+                else:
+                    print(f"Error processing {subfolder}: {e}")
+                wasSuccessful = False
+        if wasSuccessful:
+            print(f'\t{subfolder} processed successfully!')
+        else:
+            print(f'\t{subfolder} could not be processed. Please go through the error message above and debug the issue.')
 
     writer.close()
 
@@ -240,8 +255,6 @@ if __name__ == '__main__':
 
     for subfolder in sorted(os.listdir(args.path)):
         ct = subfolder.split()[-2] # if using old WT SAA data, use subfolder.split()[-1]. For newer data following established naming convention, use subfolder.split()[-2]
-        if 'CT1' in ct:
-            continue
         dt = subfolder.split()[0]
         GS_DIR_PATH = os.path.join(args.path, subfolder)
         try:
@@ -249,4 +262,4 @@ if __name__ == '__main__':
                 process_and_save_data(GS_DIR_PATH, exp_df, ct, dt, add_animal_info=True)
                 print(f"Data processed successfully for {subfolder}!\n")
         except Exception as e:
-            print(f"Error processing {GS_DIR_PATH}: {e}")
+            print(f"Error processing {GS_DIR_PATH.split('\\')[-1]} ::\n\n {e}\n")
