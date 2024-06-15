@@ -68,12 +68,8 @@ class FreezeFrame:
                 if str(e) == "At least one sheet must be visible":
                     print('No proper sheets found in the file. Skipping... Please check the file.')
                 else:
-                    # if exception is a keyerror
-                    if type(e) == KeyError:
-                        print(f'{e} not found in the timestamps file for CT: {ct}. Skipping...')
-                    else:
-                        print(traceback.format_exc())
-                        print(f'{ct} -> {e}')
+                    print(traceback.format_exc())
+                    print(f'{ct} -> {e}')
 
     def process_subfolder(self, subfolder):
         '''Function to process the FreezeFrame data for each subfolder.'''
@@ -89,7 +85,13 @@ class FreezeFrame:
 
                 print('\nProcessing: ', sheet_name)
                 file_path = os.path.join(self.folder_path, subfolder, file) # set the file path
-                data = self.process_file(file_path, sheet_name, ct) # process the FreezeFrame data
+                try:
+                    data = self.process_file(file_path, sheet_name, ct) # process the FreezeFrame data
+                except Exception as e: # if there is an exception, print the exception
+                    if type(e) == KeyError:
+                        print(f'{e} not found in the timestamps file for {ct}. Skipping...')
+                        print(f'File # {self.counter} NOT processed: {file}')
+                        continue
                 final = pd.merge(self.ct_df, data, on='Animal ID', how='inner') # merge the cohort data with the FreezeFrame data
                 final.index += 1
                 final.style.apply(self.align_center, axis=0).to_excel(writer, sheet_name=sheet_name, index=True) # write the data to the Excel file

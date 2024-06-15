@@ -3,7 +3,6 @@ import pandas as pd
 import numpy as np
 from pandas import ExcelWriter
 import warnings
-from tqdm import tqdm
 import argparse
 import traceback
 
@@ -163,4 +162,4 @@ if __name__ == '__main__':
                 print(f"Data processed successfully for {subfolder}!\n")
         except Exception as e:
             # print(traceback.format_exc()) # Uncomment this line to print traceback to help debug errors
-            print(f"Error processing {GS_DIR_PATH}: {e}")
+            print(f"Error processing {GS_DIR_PATH.split('\\')[-1]} ::\n\n {e}\n")
