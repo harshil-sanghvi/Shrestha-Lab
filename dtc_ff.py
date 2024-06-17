@@ -166,7 +166,12 @@ class FreezeFrame:
             sub_df = sub_df.apply(lambda x: x.str.strip() if x.dtype == 'object' else x).replace("NaN", 0).apply(pd.to_numeric, errors='coerce') # clean the data by first stripping the strings, replacing "NaN" with 0, and converting the data to numeric
             return float(sub_df.mean(axis=1).round(2)) # return the average of the data
         except Exception as e: # if there is an exception, return 0
-            print(animal_id, ' -> ', e)
+            if e.args[0].startswith("cannot convert the series to "):
+                print(f'Multiple values for {animal_id}')
+            elif e.args[0].startswith("cannot do slice indexing"):
+                print(f'No values for {animal_id} for timestamp value {e.args[0].split()[-4]}')
+            else:
+                print(f'Error for {animal_id} in {start} to {end} -> {e}')
             return 0
         
 def main():
