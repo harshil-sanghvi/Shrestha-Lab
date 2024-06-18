@@ -16,8 +16,15 @@ class FreezeFrame:
         self.output_path = output_path
         self.training_timestamps, self.ltm_timestamps = None, None
         self.output = self.output_path
-        self.cols = pd.MultiIndex.from_arrays([['Animal ID', ' ', ' '] + ['CS+']*6 + ['CS-']*6 + [' '] + ['ITI']*10 + [' '],
-                                          ['', 'Threshold', 'Pre-CS'] + [str(i) for i in range(1, 6)] + ['Mean CS+'] + [str(i) for i in range(1, 6)] + ['Mean CS-'] + ['D.I.'] + [str(i) for i in range(1, 10)] + ['Mean ITI', 'Post-CS']])
+        self.cols = None
+
+    def getLTMcols(self):
+        return pd.MultiIndex.from_arrays([['Animal ID', ' ', ' '] + ['CS+']*6 + ['CS-']*6 + [' '] + ['Post-CS+ ITI']*5  + ['Post-CS- ITI']*6 + [' ']*2,
+                                          ['', 'Threshold', 'Pre-CS'] + [str(i) for i in range(1, 6)] + ['Mean CS+'] + [str(i) for i in range(1, 6)] + ['Mean CS-'] + ['D.I.'] + [str(i) for i in range(1, 5)] + ['Mean Post-CS+ ITI'] + [str(i) for i in range(1, 6)] + ['Mean Post-CS- ITI'] + ['Mean ITI', 'Post-CS']])
+    
+    def getTrainingCols(self):
+        return pd.MultiIndex.from_arrays([['Animal ID', ' ', ' '] + ['CS+']*6 + ['CS-']*6 + [' '] + ['Post-CS+ ITI']*6  + ['Post-CS- ITI']*5 + [' ']*2,
+                                          ['', 'Threshold', 'Pre-CS'] + [str(i) for i in range(1, 6)] + ['Mean CS+'] + [str(i) for i in range(1, 6)] + ['Mean CS-'] + ['D.I.'] + [str(i) for i in range(1, 6)] + ['Mean Post-CS+ ITI'] + [str(i) for i in range(1, 5)] + ['Mean Post-CS- ITI'] + ['Mean ITI', 'Post-CS']])
         
     def process_timestamps(self):
         '''Function to process the timestamps file and extract the training and LTM timestamps.'''
@@ -78,8 +85,6 @@ class FreezeFrame:
         subfolders = [f for f in os.listdir(self.folder_path) if os.path.isdir(os.path.join(self.folder_path, f))] # get all subfolders
         for subfolder in subfolders: # for each subfolder
             ct = subfolder.split()[-2] # extract the CT from the subfolder name
-            if 'CT1' in ct: # if the CT is CT1
-                continue
             self.ct_df = self.get_cohort_data(ct) # get the cohort data for the CT
             self.process_subfolder(subfolder) # process the FreezeFrame data for the subfolder
             print(subfolder, 'processed successfully!')
@@ -115,34 +120,49 @@ class FreezeFrame:
     
     def process_training(self, ff_df):
         '''Function to process the FreezeFrame data for the training experiment.'''
-        return self.process_data(ff_df, self.training_timestamps)
+        self.exp = 'Training'
+        return self.process_data(ff_df, self.training_timestamps, 'Training')
       
     def process_ltm(self, ff_df):
         '''Function to process the FreezeFrame data for the LTM experiment.'''
-        return self.process_data(ff_df, self.ltm_timestamps)
+        self.exp = 'LTM'
+        return self.process_data(ff_df, self.ltm_timestamps, 'LTM')
     
-    def process_data(self, ff_df, timestamps):
+    def process_data(self, ff_df, timestamps, exp):
         '''Function to process the FreezeFrame data for the given timestamps.'''
-        df = pd.DataFrame(columns=self.cols)
-        pre_cs_start, pre_cs_end = self.extract_timestamps(timestamps, 'Pre-CS') # extract the start and end timestamps for Pre-CS
-        cs_plus_start, cs_plus_end = self.extract_timestamps(timestamps, r'CS\+') # extract the start and end timestamps for CS+
-        cs_minus_start, cs_minus_end = self.extract_timestamps(timestamps, r'CS\-') # extract the start and end timestamps for CS-
-        iti_start, iti_end = self.extract_timestamps(timestamps, 'ITI') # extract the start and end timestamps for ITI
-        post_cs_start, post_cs_end = self.extract_timestamps(timestamps, 'Post-CS') # extract the start and end timestamps for Post-CS
+        if exp == 'Training':
+            self.cols = self.getTrainingCols()
+        else:
+            self.cols = self.getLTMcols()
 
+        df = pd.DataFrame(columns=self.cols)
+
+        pre_cs_start, pre_cs_end = self.extract_timestamps(timestamps, 'Pre-CS') # extract the start and end timestamps for Pre-CS
+        cs_plus_start, cs_plus_end = self.extract_timestamps(timestamps, r'CS+') # extract the start and end timestamps for CS+
+        cs_minus_start, cs_minus_end = self.extract_timestamps(timestamps, r'CS-') # extract the start and end timestamps for CS-
+        post_cs_plus_iti_start, post_cs_plus_iti_end = self.extract_timestamps(timestamps, 'Post-CS+ ITI') # extract the start and end timestamps for Post-CS+ ITI
+        post_cs_minus_iti_start, post_cs_minus_iti_end = self.extract_timestamps(timestamps, 'Post-CS- ITI') # extract the start and end timestamps for Post-CS- ITI
+        post_cs_start, post_cs_end = self.extract_timestamps(timestamps, 'Post-CS') # extract the start and end timestamps for Post-CS
+        
         for animal_id in ff_df.iloc[1:, 0]: # for each animal ID
+            if str(animal_id) == 'nan': # if the animal ID is 'nan', skip it
+                continue
             threshold = ff_df[ff_df.iloc[:, 0].astype(str).str.contains(str(animal_id))].loc[:, 'Threshold'].values[0] # extract the threshold
             pre_cs = [self.get_ff_avg(animal_id, start, end, ff_df) for start, end in zip(pre_cs_start, pre_cs_end)] # extract the average of the FreezeFrame data for Pre-CS
             cs_plus = [self.get_ff_avg(animal_id, start, end, ff_df) for start, end in zip(cs_plus_start, cs_plus_end)] # extract the average of the FreezeFrame data for CS+
             cs_minus = [self.get_ff_avg(animal_id, start, end, ff_df) for start, end in zip(cs_minus_start, cs_minus_end)] # extract the average of the FreezeFrame data for CS-
-            iti = [self.get_ff_avg(animal_id, start, end, ff_df) for start, end in zip(iti_start, iti_end)] # extract the average of the FreezeFrame data for ITI
+            post_cs_plus_iti = [self.get_ff_avg(animal_id, start, end, ff_df) for start, end in zip(post_cs_plus_iti_start, post_cs_plus_iti_end)] # extract the average of the FreezeFrame data for Post-CS+ ITI
+            post_cs_minus_iti = [self.get_ff_avg(animal_id, start, end, ff_df) for start, end in zip(post_cs_minus_iti_start, post_cs_minus_iti_end)] # extract the average of the FreezeFrame data for Post-CS- ITI
             post_cs = [self.get_ff_avg(animal_id, start, end, ff_df) for start, end in zip(post_cs_start, post_cs_end)] # extract the average of the FreezeFrame data for Post-CS
             mean_cs_plus = round(np.mean(cs_plus), 2) # calculate the mean of the CS+ data
             mean_cs_minus = round(np.mean(cs_minus), 2) # calculate the mean of the CS- data
             di = self.calculate_di(mean_cs_plus, mean_cs_minus) # calculate the D.I.
-            mean_iti = round(np.mean(iti), 2) # calculate the mean of the ITI data
+            mean_post_cs_plus_iti = round(np.mean(post_cs_plus_iti), 2) # calculate the mean of the Post-CS+ ITI data
+            mean_post_cs_minus_iti = round(np.mean(post_cs_minus_iti), 2) # calculate the mean of the Post-CS- ITI data
+            mean_iti = round(np.mean([*post_cs_plus_iti, *post_cs_minus_iti]), len([*post_cs_plus_iti, *post_cs_minus_iti])) # calculate the mean of the ITI data
 
-            data = [animal_id.split()[-1], threshold, pre_cs[0], *cs_plus, mean_cs_plus, *cs_minus, mean_cs_minus, di, *iti, mean_iti, *post_cs] # create the data list
+            data = [animal_id.split()[-1], threshold, pre_cs[0], *cs_plus, mean_cs_plus, *cs_minus, mean_cs_minus, di, *post_cs_plus_iti, mean_post_cs_plus_iti, *post_cs_minus_iti, mean_post_cs_minus_iti, mean_iti, post_cs[-1]]
+            
             df = pd.concat([df, pd.DataFrame([data], columns=self.cols)], ignore_index=True) # concatenate the data to the DataFrame
         return df # return the DataFrame
 
@@ -155,8 +175,8 @@ class FreezeFrame:
         
     def extract_timestamps(self, timestamps, label):
         '''Function to extract the start and end timestamps for the given label.'''
-        start = timestamps[timestamps['Epoch'].str.contains(label)]['Onset'].values # extract the start timestamps
-        end = timestamps[timestamps['Epoch'].str.contains(label)]['Offset'].values # extract the end timestamps
+        start = timestamps[timestamps['Epoch'].str.startswith(label)]['Onset'].values # extract the start timestamps 
+        end = timestamps[timestamps['Epoch'].str.startswith(label)]['Offset'].values # extract the end timestamps
         return start, end # return the start and end timestamps
 
     def get_ff_avg(self, animal_id, start, end, ff_df):
@@ -182,14 +202,10 @@ def main():
     parser.add_argument('--folder', type=str, required=True, help='Path to the folder containing the FreezeFrame data')
     parser.add_argument('--output', type=str, required=True, help='Path to the output folder')
     args = parser.parse_args()
-    timestamps_path = args.timestamps
-    ct_path = args.ct
-    folder_path = args.folder
-    output_path = args.output
 
-    ff = FreezeFrame(timestamps_path, ct_path, folder_path, output_path) # create a FreezeFrame object
-    ff.process_timestamps() # process the timestamps file
-    ff.process_folder() # process the folder containing the FreezeFrame data
+    ff = FreezeFrame(args.timestamps, args.ct, args.folder, args.output)
+    ff.process_timestamps()
+    ff.process_folder()
 
 # Run the main function
 if __name__ == '__main__':
