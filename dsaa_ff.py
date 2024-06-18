@@ -58,8 +58,6 @@ class FreezeFrame:
             if 'Archive' in subfolder: # if the subfolder contains 'Archive', skip it
                 continue
             ct = subfolder.split()[-2] # extract the CT from the subfolder name
-            if ct in ['CT4']:
-                continue
             print('\n=============================', ct, '=============================')
             self.ct_df = self.get_cohort_data(ct) # get the cohort data for the CT
             try:
@@ -90,6 +88,10 @@ class FreezeFrame:
                 except Exception as e: # if there is an exception, print the exception
                     if type(e) == KeyError:
                         print(f'{e} not found in the timestamps file for {ct}. Skipping...')
+                        print(f'File # {self.counter} NOT processed: {file}')
+                        continue
+                    else:
+                        print(f'{ct} -> {e}')
                         print(f'File # {self.counter} NOT processed: {file}')
                         continue
                 final = pd.merge(self.ct_df, data, on='Animal ID', how='inner') # merge the cohort data with the FreezeFrame data
@@ -127,6 +129,8 @@ class FreezeFrame:
         df = pd.DataFrame(columns=self.get_cols(cs_start_len+1))
     
         for animal_id in ff_df.iloc[1:, 0]: # for each animal ID
+            if str(animal_id) == 'nan': # if the animal ID is 'nan', skip it
+                continue
             threshold = ff_df[ff_df.iloc[:, 0].astype(str).str.contains(str(animal_id))].loc[:, 'Threshold'].values[0] # extract the threshold
             try:
                 cs_plus_start = self.timestamps[ct][experiment_name][animal_id]['onset']['cs_plus'] # extract the CS start timestamps
@@ -144,6 +148,16 @@ class FreezeFrame:
             di = self.calculate_di(mean_cs_plus, mean_cs_minus) # calculate the D.I.
 
             data = [animal_id.split()[-1], threshold, *cs_plus, mean_cs_plus, *cs_minus, mean_cs_minus, di] # create the data
+            # debug if len(data) == 27
+            # if len(data) == 27:
+            #     print('Data length: ', len(data))
+            #     print('Animal ID: ', animal_id)
+            #     print('Threshold: ', threshold)
+            #     print('CS+: ', cs_plus)
+            #     print('Mean CS+: ', mean_cs_plus)
+            #     print('CS-: ', cs_minus)
+            #     print('Mean CS-: ', mean_cs_minus)
+            #     print('D.I.: ', di)
             df = pd.concat([df, pd.DataFrame([data], columns=self.get_cols(cs_start_len+1))], ignore_index=True) # concatenate the data to the DataFrame
         return df # return the DataFrame
 
