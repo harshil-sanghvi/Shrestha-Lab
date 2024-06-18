@@ -137,6 +137,8 @@ class FreezeFrame:
         post_cs_start, post_cs_end = self.extract_timestamps(timestamps, 'Post-CS') # extract the start and end timestamps for Post-CS
 
         for animal_id in ff_df.iloc[1:, 0]: # for each animal ID
+            if str(animal_id) == 'nan': # if the animal ID is 'nan', skip it
+                continue
             threshold = ff_df[ff_df.iloc[:, 0].astype(str).str.contains(str(animal_id))].loc[:, 'Threshold'].values[0] # extract the threshold
             pre_cs = [self.get_ff_avg(animal_id, start, end, ff_df) for start, end in zip(pre_cs_start, pre_cs_end)] # extract the average of the FreezeFrame data for Pre-CS
             cs_plus = [self.get_ff_avg(animal_id, start, end, ff_df) for start, end in zip(cs_plus_start, cs_plus_end)] # extract the average of the FreezeFrame data for CS+
