@@ -94,6 +94,8 @@ class FreezeFrame:
         output_path = os.path.join(self.output, subfolder + '.xlsx') # set the output path
         writer = ExcelWriter(output_path) # create an ExcelWriter object
         for file in os.listdir(os.path.join(self.folder_path, subfolder)): # for each file in the subfolder
+            if not file.endswith('.csv'):
+                continue
             sheet_name = file.split('\\')[-1].split('.')[-2] # extract the sheet name
             if file.endswith('.csv'): # if the file is a CSV file
                 file_path = os.path.join(self.folder_path, subfolder, file) # set the file path
@@ -159,7 +161,7 @@ class FreezeFrame:
             di = self.calculate_di(mean_cs_plus, mean_cs_minus) # calculate the D.I.
             mean_post_cs_plus_iti = round(np.mean(post_cs_plus_iti), 2) # calculate the mean of the Post-CS+ ITI data
             mean_post_cs_minus_iti = round(np.mean(post_cs_minus_iti), 2) # calculate the mean of the Post-CS- ITI data
-            mean_iti = round(np.mean([*post_cs_plus_iti, *post_cs_minus_iti]), len([*post_cs_plus_iti, *post_cs_minus_iti])) # calculate the mean of the ITI data
+            mean_iti = round(np.sum([*post_cs_plus_iti, *post_cs_minus_iti]) / len([*post_cs_plus_iti, *post_cs_minus_iti]), 2) # calculate the mean of the ITI data
 
             data = [animal_id.split()[-1], threshold, pre_cs[0], *cs_plus, mean_cs_plus, *cs_minus, mean_cs_minus, di, *post_cs_plus_iti, mean_post_cs_plus_iti, *post_cs_minus_iti, mean_post_cs_minus_iti, mean_iti, post_cs[-1]]
             
