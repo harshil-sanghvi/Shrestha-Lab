@@ -96,6 +96,8 @@ class FreezeFrame:
         output_path = os.path.join(self.output, subfolder + '.xlsx') # set the output path
         writer = ExcelWriter(output_path) # create an ExcelWriter object
         for file in os.listdir(os.path.join(self.folder_path, subfolder)): # for each file in the subfolder
+            if not file.endswith('.csv'):
+                continue
             sheet_name = file.split('\\')[-1].split('.')[-2] # extract the sheet name
             if file.endswith('.csv'): # if the file is a CSV file
                 file_path = os.path.join(self.folder_path, subfolder, file) # set the file path
