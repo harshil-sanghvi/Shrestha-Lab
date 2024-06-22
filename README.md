@@ -1,90 +1,116 @@
-# Shrestha Lab
+**Manual: Shrestha Lab Python Scripts**
 
-## Overview
+**A. Python Installation and GitHub Repository**
 
-This code is designed to process data files related to a specific experiment and generate an Excel file containing analyzed data. The script handles file parsing, data extraction, and Excel file creation. It also includes functions to add animal details to the generated Excel file based on a separate data source.
+To facilitate data processing from Graphic State and FreezeFrame experiments, Python and essential libraries are required. Below are the detailed steps for Python installation and instructions for accessing the GitHub repository.
 
-## Dependencies
+1. **Python Installation:**
+   - **Mac:** Follow [this YouTube tutorial](https://youtu.be/nhv82tvFfkM) until 3:44.
+   - **Windows:** Follow [this YouTube tutorial](https://youtu.be/ERcsRnUQ64s) until 2:31.
+   - Open Terminal (Mac) or Command Prompt (Windows).
+   - Install required packages using pip:
+     ```
+     pip install pandas numpy argparse Jinja2
+     ```
 
-The code relies on several Python libraries:
+2. **GitHub Repository:**
+   - Access the Shrestha Lab Python scripts repository [here](https://github.com/harshil-sanghvi/Shrestha-Lab).
 
-- `os`: For handling file paths and directories.
-- `pandas` (`pd`): Used for data manipulation and Excel file creation.
-- `numpy` (`np`): Provides support for numerical operations.
-- `ExcelWriter` from `pandas`: Enables writing data to Excel files.
-- `warnings`: Suppresses warning messages during data processing.
-- `tqdm`: Used for progress tracking during file processing.
+**B. Pavlovian Threat Conditioning - FreezeFrame (FF) Data**
 
-## Functions
+For processing data from FreezeFrame experiments with discrete CS epochs:
 
-1. **`check_saa_in_path(path)`**
-   - Checks if the string 'SAA' is present in the given file path.
+- **Data Sources:**
+  - Cohort details are sourced from `cohorts.xlsx`.
+  - CS epoch timestamps are sourced from `PTC Timestamps.xlsx` or `DTC Timestamps.xlsx`.
 
-2. **`process_file(file_path, total_trials, col)`**
-   - Processes an individual data file, extracts required information, and returns a DataFrame.
+- **Protocol and Folder Structure:**
 
-3. **`process_gs_data(GS_DIR_PATH)`**
-   - Processes data from files within the specified directory (`GS_DIR_PATH`) and returns a consolidated DataFrame.
+	-   **Protocol:**  Refer to the detailed protocol for exporting and preprocessing raw data from FreezeFrame available  [here](https://docs.google.com/document/d/1-GL7XAA1Yo-S_kxhXourc54XA5-0dqa0jA3sxfy8ZHM/edit#heading=h.r7fsm9fq7bbj).
+	-   **Cohort Details and Timestamps:**  Ensure  `cohorts.xls`  and   `PTC Timestamps.xlsx`  or  `DTC Timestamps.xlsx` follow the structure outlined in the protocol to facilitate smooth data processing.
 
-4. **`add_animal_details(data_df, exp_df, ct)`**
-   - Adds animal details from a separate DataFrame (`exp_df`) to the main data DataFrame based on common identifiers.
+	- **Folder Structure:**
+  ```
+  - Parent Experiment Folder (e.g., PL_CamK2a.4EKD PTC Freezeframe)
+    - Child Experiment CT1 Subfolder (e.g., 20220322 PL_CamK2a.4EKD CT1 PTC)
+      - freeze_SAA1.csv
+      - freeze_SAA2.csv
+      - ...
+    - Child Experiment CT2 Subfolder
+    - ...
+  ```
 
-5. **`align_center(x)`**
-   - Helper function to align text in cells to the center for Excel styling.
+- **Scripts and Usage:**
+  - `ptc_ff.py` for PTC data (CS+ only).
+  - `dtc_ff.py` for DTC data (CS+ and CS-).
+  - `dtc_unp_ff.py` for modified DTC protocols.
 
-6. **`process_and_save_data(PATH, exp_df, ct, add_animal_info=True)`**
-   - Processes data in subfolders of a specified directory (`PATH`), adds animal details if required, and saves the analyzed data to Excel files.
+  **Usage:**
+  ```
+  python filename.py --timestamps "/path/to/timestamps.xlsx" --ct "/path/to/cohorts.xlsx" --folder "/path/to/freezeframe_data" --output "/path/to/output_folder"
+  ```
 
-## Usage
+**C. Signaled Active Avoidance - Graphic State (GS) Data**
 
-1. Define the paths to the main directory containing subfolders (`PATH`) and the file containing experiment details (`EXP_DETAILS_PATH`).
+For processing data from Graphic State experiments:
 
-2. Read the experiment details into a DataFrame (`exp_df`) using `pd.read_excel`.
+- **Data Sources:**
+  - Cohort details are sourced from `cohorts.xlsx`.
 
-3. Loop through the subfolders in the main directory using `os.listdir(PATH)`.
+- **Protocol and Folder Structure:**
+	-   **Protocol:**  Refer to the detailed protocol for exporting and preprocessing raw data from Graphic State available  [here](https://docs.google.com/document/d/17RiWy8IkbLBCMEBfHGFb2WbEahipzEGvwAm_slDDRR0/edit#heading=h.ra1nhlil3bl7).
+	-   **Cohort Details:**  Ensure  `cohorts.xls`  follow the structure outlined in the protocol to facilitate smooth data processing.
 
-4. Call `process_and_save_data()` for each subfolder to process the data and save the results to Excel files.
+	- **Folder Structure:**
+  ```
+  - Parent Experiment Folder (e.g., PL_SIStag.TSC SAA)
+    - Date ExperimentName CT1 SAA
+      - SAA1
+        - csv files
+          - 2023_02_28__16_12_00_A327.csv
+          - ...
+      - SAA2
+        - csv files
+          - ...
+    - Date ExperimentName CT1 SAA
+    - ...
+  ```
 
-## Example
+- **Scripts and Usage:**
+  - `saa_gs.py` for GS data (CS+ only).
+  - `dsaa_gs.py` for GS data (CS+ and CS-).
 
-A user can run the script by providing the path to the data folder and the path to the Excel file containing experiment details as arguments in the command line.
+  **Usage:**
+  ```
+  python filename.py --path "/path/to/main_folder" --exp_details_path "/path/to/cohorts.xlsx"
+  ```
 
-```python
-python saa_process.py --path "C:\Users\user\Documents\Data" --exp_details_path "C:\Users\user\Documents\Experiment_Details.xlsx"
+**D. Signaled Active Avoidance - FreezeFrame (FF) Data**
+
+For processing data combining GS and FF experiments:
+
+- **Data Sources:**
+  - **Cohort Information:** Utilize `cohorts.xlsx` containing experiment details per cohort and animal, adhering to protocol specifications.
+  - **CS Timestamps:** Access the folder containing CSV files of CS timestamps generated from `saa_gs.py` or `dsaa_gs.py`.
+	  - Ensure the folder structure for GS processed data follows:
+
 ```
+- Parent experiment folder (e.g., PL_SIStag.TSC SAA)
+    - ExperimentName CT1 Date.xlsx (e.g., PL SISTAG.TSC CT2 20230326.xlsx)
+    - ...
+ ```
 
-In this example, the script processes the data in the subfolders of the specified path and saves the processed data to Excel files. The experiment details are extracted from the Excel file provided and added to the processed data.
+- **Folder Structure:**
+  - Maintain consistency with the structure outlined in Section B for seamless integration and data retrieval.
 
-## Notes
+- **Scripts and Usage:**
+  - `saa_ff.py` for FF data (CS+ only).
+  - `dsaa_ff.py` for FF data (CS+ and CS-).
 
-- Ensure that the data files within subfolders follow the expected format for successful processing.
-- Customize column names, file paths, and other parameters as per your specific data and requirements.
+  **Usage:**
+   - Execute the scripts using the same procedure as described in Section B for FreezeFrame experiments.
 
-## Expected Folder Structure and Filename Format
 
-### Folder Structure
+**Conclusion**
 
-The script expects a specific folder structure to process the data smoothly. The main directory should contain subfolders, each representing a different subset of data. Within each subfolder, the script expects to find a directory named "csv files" containing CSV data files.
-
-- Main Directory
-  - YYYYMMDD ExpName CohortID SAA 
-    - SAA1
-      - csv files
-        - YYYY_MM_DD__HH_MM_SS_AnimalID.csv
-        - YYYY_MM_DD__HH_MM_SS_AnimalID.csv
-        - ...
-  - YYYYMMDD ExpName CohortID SAA
-    - LTM1
-      - csv files
-        - YYYY_MM_DD__HH_MM_SS_AnimalID.csv
-        - YYYY_MM_DD__HH_MM_SS_AnimalID.csv
-        - ...
-  - ...
-
-### Filename Format
-
-For smooth processing, the script assumes that the CSV data files within each "csv files" directory follow a specific naming convention. The filename format should include relevant information such as animal ID, and experiment's date and time. Following is the format to be adhered:
-
-- YYYY_MM_DD__HH_MM_SS_AnimalID.csv
-
-Ensure that filenames are descriptive and include necessary identifiers to extract meaningful information during processing.
+These scripts are designed to streamline data processing from both Graphic State and FreezeFrame experiments conducted by the Shrestha Lab. By following the specified protocols, folder structures, and script usage guidelines, lab members can efficiently analyze and interpret experimental results. For further details, refer to the provided protocols and documentation links.
