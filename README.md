@@ -1,5 +1,9 @@
 **Manual: Shrestha Lab Python Scripts**
 
+**Harshil Sanghvi & Prerana Shrestha**
+
+_Last Updated 06/21/2024_
+
 **A. Python Installation and GitHub Repository**
 
 To facilitate data processing from Graphic State and FreezeFrame experiments, Python and essential libraries are required. Below are the detailed steps for Python installation and instructions for accessing the GitHub repository.
