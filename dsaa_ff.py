@@ -218,21 +218,16 @@ class FreezeFrame:
 
 def main():
     '''Function to parse the command line arguments and process the FreezeFrame data.'''
-    # parser = argparse.ArgumentParser(description='Process FreezeFrame data')
-    # parser.add_argument('--timestamps', type=str, required=True, help='Path to the timestamps file')
-    # parser.add_argument('--ct', type=str, required=True, help='Path to the CT file')
-    # parser.add_argument('--folder', type=str, required=True, help='Path to the folder containing the FreezeFrame data')
-    # parser.add_argument('--output', type=str, required=True, help='Path to the output folder')
-    # args = parser.parse_args()
-    # timestamps_path = args.timestamps
-    # ct_path = args.ct
-    # folder_path = args.folder
-    # output_path = args.output
-
-    timestamps_path = r"G:\Shared drives\NBB_ShresthaLab_SharedDrive\LM - Harshil Sanghvi\OUTPUT  Experiment Results\20240506-0530\WT DSAA"
-    ct_path = r"G:\Shared drives\NBB_ShresthaLab_SharedDrive\LM - Harshil Sanghvi\New Data_ready for code\DSAA\WT DSAA Freezeframe\WT DSAA cohorts.xlsx"
-    folder_path = r"G:\Shared drives\NBB_ShresthaLab_SharedDrive\LM - Harshil Sanghvi\New Data_ready for code\DSAA\WT DSAA Freezeframe"
-    output_path = r"C:\Users\Harshil\OneDrive - Stony Brook University\Documents\Shrestha Lab\Experiments\WT DSAA data Freezeframe"
+    parser = argparse.ArgumentParser(description='Process FreezeFrame data')
+    parser.add_argument('--timestamps', type=str, required=True, help='Path to the timestamps file')
+    parser.add_argument('--ct', type=str, required=True, help='Path to the CT file')
+    parser.add_argument('--folder', type=str, required=True, help='Path to the folder containing the FreezeFrame data')
+    parser.add_argument('--output', type=str, required=True, help='Path to the output folder')
+    args = parser.parse_args()
+    timestamps_path = args.timestamps
+    ct_path = args.ct
+    folder_path = args.folder
+    output_path = args.output
 
     ff = FreezeFrame(timestamps_path, ct_path, folder_path, output_path) # create a FreezeFrame object
     ff.process_folder() # process the folder containing the FreezeFrame data
