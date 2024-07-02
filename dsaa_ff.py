@@ -66,7 +66,7 @@ class FreezeFrame:
                 if str(e) == "At least one sheet must be visible":
                     print('No proper sheets found in the file. Skipping... Please check the file.')
                 else:
-                    print(traceback.format_exc())
+                    # print(traceback.format_exc())
                     print(f'{ct} -> {e}')
 
     def process_subfolder(self, subfolder):
@@ -85,6 +85,10 @@ class FreezeFrame:
                 file_path = os.path.join(self.folder_path, subfolder, file) # set the file path
                 try:
                     data = self.process_file(file_path, sheet_name, ct) # process the FreezeFrame data
+                    final = pd.merge(self.ct_df, data, on='Animal ID', how='inner') # merge the cohort data with the FreezeFrame data
+                    final.index += 1
+                    final.style.apply(self.align_center, axis=0).to_excel(writer, sheet_name=sheet_name, index=True) # write the data to the Excel file
+                    print('File #', self.counter, ' processed: ', file)
                 except Exception as e: # if there is an exception, print the exception
                     if type(e) == KeyError:
                         print(f'{e} not found in the timestamps file for {ct}. Skipping...')
@@ -92,13 +96,11 @@ class FreezeFrame:
                         continue
                     else:
                         print(f'{ct} -> {e}')
+                        # print(traceback.format_exc())
                         print(f'File # {self.counter} NOT processed: {file}')
                         continue
-                final = pd.merge(self.ct_df, data, on='Animal ID', how='inner') # merge the cohort data with the FreezeFrame data
-                final.index += 1
-                final.style.apply(self.align_center, axis=0).to_excel(writer, sheet_name=sheet_name, index=True) # write the data to the Excel file
-                print('File #', self.counter, ' processed: ', file)
-                self.counter += 1
+                finally:
+                    self.counter += 1
         writer.close() # close the ExcelWriter object
 
     def clean_columns(self, columns):
@@ -118,15 +120,14 @@ class FreezeFrame:
     def process_experiment(self, ff_df, experiment_name, ct):
         '''Function to process the FreezeFrame data for the given timestamps.'''
         experiment_name = experiment_name.upper()
+        len_of_cols = 0
         try:
-            cs_start_len = len(self.timestamps[ct][experiment_name][list(self.timestamps[ct][experiment_name].keys())[0]]['onset']['cs_plus']) # get the length of the CS start timestamps
+            len_of_cols = max([len(self.timestamps[ct][experiment_name][key]['onset']['cs_plus']) for key in self.timestamps[ct][experiment_name].keys()])
         except IndexError:
             print('No data found for CT: ', ct, ' and experiment: ', experiment_name)
-            # return empty DataFrame; if LTM in the experiment name, then return with 6 columns else 12 columns
             return pd.DataFrame(columns=self.get_cols(6 if 'LTM' in experiment_name else 11))
             
-        
-        df = pd.DataFrame(columns=self.get_cols(cs_start_len+1))
+        df = pd.DataFrame(columns=self.get_cols(len_of_cols+1))
     
         for animal_id in ff_df.iloc[1:, 0]: # for each animal ID
             if str(animal_id) == 'nan': # if the animal ID is 'nan', skip it
@@ -147,18 +148,13 @@ class FreezeFrame:
 
             di = self.calculate_di(mean_cs_plus, mean_cs_minus) # calculate the D.I.
 
+            if len(cs_plus_start) < len_of_cols:
+                cs_plus.append('NA')
+                cs_minus.append('NA')
+
             data = [animal_id.split()[-1], threshold, *cs_plus, mean_cs_plus, *cs_minus, mean_cs_minus, di] # create the data
-            # debug if len(data) == 27
-            # if len(data) == 27:
-            #     print('Data length: ', len(data))
-            #     print('Animal ID: ', animal_id)
-            #     print('Threshold: ', threshold)
-            #     print('CS+: ', cs_plus)
-            #     print('Mean CS+: ', mean_cs_plus)
-            #     print('CS-: ', cs_minus)
-            #     print('Mean CS-: ', mean_cs_minus)
-            #     print('D.I.: ', di)
-            df = pd.concat([df, pd.DataFrame([data], columns=self.get_cols(cs_start_len+1))], ignore_index=True) # concatenate the data to the DataFrame
+            
+            df = pd.concat([df, pd.DataFrame([data], columns=self.get_cols(len_of_cols+1))], ignore_index=True) # concatenate the data to the DataFrame
         return df # return the DataFrame
 
     def calculate_di(self, mean_cs_plus, mean_cs_minus):
@@ -222,16 +218,21 @@ class FreezeFrame:
 
 def main():
     '''Function to parse the command line arguments and process the FreezeFrame data.'''
-    parser = argparse.ArgumentParser(description='Process FreezeFrame data')
-    parser.add_argument('--timestamps', type=str, required=True, help='Path to the timestamps file')
-    parser.add_argument('--ct', type=str, required=True, help='Path to the CT file')
-    parser.add_argument('--folder', type=str, required=True, help='Path to the folder containing the FreezeFrame data')
-    parser.add_argument('--output', type=str, required=True, help='Path to the output folder')
-    args = parser.parse_args()
-    timestamps_path = args.timestamps
-    ct_path = args.ct
-    folder_path = args.folder
-    output_path = args.output
+    # parser = argparse.ArgumentParser(description='Process FreezeFrame data')
+    # parser.add_argument('--timestamps', type=str, required=True, help='Path to the timestamps file')
+    # parser.add_argument('--ct', type=str, required=True, help='Path to the CT file')
+    # parser.add_argument('--folder', type=str, required=True, help='Path to the folder containing the FreezeFrame data')
+    # parser.add_argument('--output', type=str, required=True, help='Path to the output folder')
+    # args = parser.parse_args()
+    # timestamps_path = args.timestamps
+    # ct_path = args.ct
+    # folder_path = args.folder
+    # output_path = args.output
+
+    timestamps_path = r"G:\Shared drives\NBB_ShresthaLab_SharedDrive\LM - Harshil Sanghvi\OUTPUT  Experiment Results\20240506-0530\WT DSAA"
+    ct_path = r"G:\Shared drives\NBB_ShresthaLab_SharedDrive\LM - Harshil Sanghvi\New Data_ready for code\DSAA\WT DSAA Freezeframe\WT DSAA cohorts.xlsx"
+    folder_path = r"G:\Shared drives\NBB_ShresthaLab_SharedDrive\LM - Harshil Sanghvi\New Data_ready for code\DSAA\WT DSAA Freezeframe"
+    output_path = r"C:\Users\Harshil\OneDrive - Stony Brook University\Documents\Shrestha Lab\Experiments\WT DSAA data Freezeframe"
 
     ff = FreezeFrame(timestamps_path, ct_path, folder_path, output_path) # create a FreezeFrame object
     ff.process_folder() # process the folder containing the FreezeFrame data
