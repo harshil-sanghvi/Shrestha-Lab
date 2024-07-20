@@ -10,7 +10,7 @@ warnings.filterwarnings("ignore")
 
 def check_saa_in_path(path):
     """Check if 'SAA' is present in the path."""
-    return 'SAA' in path.split('\\')[-2].upper()
+    return 'SAA' in path.split(os.path.sep)[-2].upper()
 
 def get_num_trials(path):
     if not check_saa_in_path(path):
@@ -147,7 +147,7 @@ def process_file(file_path, total_trials, col):
 
         return get_features_df(animal_id, cs_pos_av, cs_pos_esc, cs_pos_fail, cs_pos_av_perc, cs_pos_esc_perc, cs_pos_fail_perc, n_shuttl_total, n_shuttl_non_cs, n_shuttl_per_ten_min_cs_pos, n_shuttl_per_ten_min_non_cs, normalized_fraction_shuttling_cs_pos, normalized_fraction_shuttling_cs_neg, normalized_fraction_shuttling_non_cs, total_duration, cs_pos_entry, cs_pos_exit, cs_pos_latency, cs_pos_total_duration, cs_pos_avg_latency, cs_neg_av, cs_neg_esc, cs_neg_fail, cs_neg_av_perc, cs_neg_esc_perc, cs_neg_fail_perc, n_shuttl_per_ten_min_cs_neg, cs_neg_entry, cs_neg_exit, cs_neg_latency, cs_neg_total_duration, cs_neg_avg_latency, DI, col)
     except Exception as e:
-        print(file_path.split('\\')[-4].split()[-2], file_path.split('\\')[-3], file_path.split('\\')[-1].split('.')[-2]," -> ", e)
+        print(file_path.split(os.path.sep)[-4].split()[-2], file_path.split(os.path.sep)[-3], file_path.split(os.path.sep)[-1].split('.')[-2]," -> ", e)
         return None
 
 def process_gs_data(GS_DIR_PATH):
@@ -206,13 +206,13 @@ def align_center(x):
 
 def process_and_save_data(PATH, exp_df, ct, dt, add_animal_info=True):
     """Process data in subfolders of PATH and save to Excel."""
-    title_split = PATH.split('\\')
-    SAVE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'Results')
+    title_split = PATH.split(os.path.sep)
+    SAVE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'results')
     if not os.path.exists(SAVE_DIR):
         os.makedirs(SAVE_DIR)
     info = title_split[-1].split()
     title = info[1].split('_')[0] + ' ' + (info[1].split('_')[1]).upper() + ' ' + info[2] + ' ' + info[0]
-    output_file = SAVE_DIR + '\\' + title + '.xlsx'
+    output_file = os.path.join(SAVE_DIR, f"{title}.xlsx")
     try:
         writer = ExcelWriter(output_file)
     except PermissionError:
@@ -220,27 +220,30 @@ def process_and_save_data(PATH, exp_df, ct, dt, add_animal_info=True):
         return
 
     for subfolder in sorted(os.listdir(PATH)):
-        GS_DIR_PATH = os.path.join(PATH, subfolder)
         wasSuccessful = True
-        if os.path.isdir(GS_DIR_PATH) and ('SAA' in subfolder.upper() or 'LTM' in subfolder.upper()):
-            GS_DIR_PATH = os.path.join(GS_DIR_PATH, 'csv files')
-            data_df = process_gs_data(GS_DIR_PATH)  # Assuming process_data is defined elsewhere
-            if add_animal_info:
-                data_df = add_animal_details(data_df, exp_df, ct, dt)
-                data_df.set_index('SN', inplace=True)
-            try:
-                data_df.style.apply(align_center, axis=0).to_excel(writer, sheet_name=subfolder, index=True)
-            except Exception as e:
-                # if type of error is keyerror then print that most likely it is that there are multiple CSV files for same animal ID in experiment subfolder
-                if isinstance(e, KeyError):
-                    print(f"Most likely there are multiple CSV files for the same animal ID in the experiment {subfolder}. Please check the data and try again. If the issue persists, try debugging by printing columns and index of the data_df.")
-                else:
-                    print(f"Error processing {subfolder}: {e}")
+        try:
+            GS_DIR_PATH = os.path.join(PATH, subfolder)
+            if os.path.isdir(GS_DIR_PATH) and ('SAA' in subfolder.upper() or 'LTM' in subfolder.upper()):
+                GS_DIR_PATH = os.path.join(GS_DIR_PATH, 'csv files')
+                data_df = process_gs_data(GS_DIR_PATH)  # Assuming process_data is defined elsewhere
+                if add_animal_info:
+                    data_df = add_animal_details(data_df, exp_df, ct, dt)
+                    data_df.set_index('SN', inplace=True)
+                    data_df.style.apply(align_center, axis=0).to_excel(writer, sheet_name=subfolder, index=True)
+            else:
                 wasSuccessful = False
+                print(f"Skipping {subfolder} as it is not a valid subfolder.")
+        except Exception as e:
+            # if type of error is keyerror then print that most likely it is that there are multiple CSV files for same animal ID in experiment subfolder
+            if isinstance(e, KeyError):
+                print(f"Most likely there are multiple CSV files for the same animal ID in the experiment {subfolder}. Please check the data and try again. If the issue persists, try debugging by printing columns and index of the data_df.")
+            elif 'csv files' in str(e) and 'No such file or directory' in str(e):
+                print(f'There is no folder named "csv files" in the experiment {subfolder}. Please check the folder structure and try again.')
+            else:
+                print(f"Error processing {subfolder}: {e}")
+            wasSuccessful = False
         if wasSuccessful:
             print(f'\t{subfolder} processed successfully!')
-        else:
-            print(f'\t{subfolder} could not be processed. Please go through the error message above and debug the issue.')
 
     writer.close()
 
@@ -262,4 +265,4 @@ if __name__ == '__main__':
                 process_and_save_data(GS_DIR_PATH, exp_df, ct, dt, add_animal_info=True)
                 print(f"Data processed successfully for {subfolder}!\n")
         except Exception as e:
-            print(f"Error processing {GS_DIR_PATH.split('\\')[-1]} ::\n\n {e}\n")
+            print(f"Error processing {GS_DIR_PATH.split(os.path.sep)[-1]} ::\n\n {e}\n")
