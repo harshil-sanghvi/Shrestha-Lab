@@ -4,6 +4,7 @@ import os
 from pandas import ExcelWriter
 import warnings
 import sys
+import re
 import argparse
 
 warnings.filterwarnings("ignore")
@@ -141,7 +142,10 @@ class FreezeFrame:
         for animal_id in ff_df.iloc[1:, 0]: # for each animal ID
             if str(animal_id) == 'nan': # if the animal ID is 'nan', skip it
                 continue
-            threshold = ff_df[ff_df.iloc[:, 0].astype(str).str.contains(str(animal_id))].loc[:, 'Threshold'].values[0] # extract the threshold
+            
+            pattern = f"^{re.escape(str(animal_id))}$"
+            threshold = ff_df[ff_df.iloc[:, 0].astype(str).str.contains(pattern)].loc[:, 'Threshold'].values[0] # extract the threshold
+
             pre_cs = [self.get_ff_avg(animal_id, start, end, ff_df) for start, end in zip(pre_cs_start, pre_cs_end)] # extract the average of the FreezeFrame data for Pre-CS
             cs_plus = [self.get_ff_avg(animal_id, start, end, ff_df) for start, end in zip(cs_plus_start, cs_plus_end)] # extract the average of the FreezeFrame data for CS+
             iti = [self.get_ff_avg(animal_id, start, end, ff_df) for start, end in zip(iti_start, iti_end)] # extract the average of the FreezeFrame data for ITI
@@ -162,7 +166,8 @@ class FreezeFrame:
     def get_ff_avg(self, animal_id, start, end, ff_df):
         '''Function to calculate the average of the FreezeFrame data for the given animal ID for the given start and end timestamps.'''
         try:
-            sub_df = ff_df.loc[ff_df.iloc[:, 0].astype(str).str.contains(animal_id), start:end] # extract the FreezeFrame data for the given animal ID and timestamps
+            pattern = f"^{re.escape(str(animal_id))}$"
+            sub_df = ff_df.loc[ff_df.iloc[:, 0].astype(str).str.contains(pattern), start:end] # extract the FreezeFrame data for the given animal ID and timestamps
             sub_df = sub_df.apply(lambda x: x.str.strip() if x.dtype == 'object' else x).replace("NaN", 0).apply(pd.to_numeric, errors='coerce') # clean the data by first stripping the strings, replacing "NaN" with 0, and converting the data to numeric
             return float(sub_df.mean(axis=1).round(2)) # return the average of the data
         except Exception as e: # if there is an exception, return 0
