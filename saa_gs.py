@@ -9,8 +9,8 @@ import traceback
 warnings.filterwarnings("ignore")
 
 def check_saa_in_path(path):
-    """Check if 'SAA' is present in the path."""
-    return 'SAA' in path.split('\\')[-2].upper()
+    """Check if 'SAA' is present in the parent folder of the path."""
+    return 'SAA' in os.path.normpath(path).split(os.sep)[-2].upper()
 
 def process_file(file_path, total_trials, col):
     """Process an individual file and extract required data."""
@@ -116,13 +116,17 @@ def align_center(x):
 
 def process_and_save_data(PATH, exp_df, ct, dt, add_animal_info=True):
     """Process data in subfolders of PATH and save to Excel."""
-    title_split = PATH.split('\\')
+    """Process data in subfolders of PATH and save to Excel."""
+    title_split = os.path.normpath(PATH).split(os.sep)  # Normalize the path to handle different OS path separators
     SAVE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'Results')
+    
     if not os.path.exists(SAVE_DIR):
         os.makedirs(SAVE_DIR)
+    
     info = title_split[-1].split()
-    title = info[1].split('_')[0] + ' ' + (info[1].split('_')[1]).upper() + ' ' + info[2] + ' ' + info[0]
-    output_file = SAVE_DIR + '\\' + title + '.xlsx'
+    title = f"{info[1].split('_')[0]} {(info[1].split('_')[1]).upper()} {info[2]} {info[0]}"
+    output_file = os.path.join(SAVE_DIR, f"{title}.xlsx")
+
     try:
         writer = ExcelWriter(output_file)
     except PermissionError:
