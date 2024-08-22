@@ -204,10 +204,9 @@ def align_center(x):
     """Align text in cells to center."""
     return ['text-align: center' for _ in x]
 
-def process_and_save_data(PATH, exp_df, ct, dt, add_animal_info=True):
+def process_and_save_data(PATH, exp_df, ct, dt, SAVE_DIR, add_animal_info=True):
     """Process data in subfolders of PATH and save to Excel."""
     title_split = os.path.normpath(PATH).split(os.sep)  # Normalize the path to handle different OS path separators
-    SAVE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'Results')
     
     if not os.path.exists(SAVE_DIR):
         os.makedirs(SAVE_DIR)
@@ -252,20 +251,21 @@ def process_and_save_data(PATH, exp_df, ct, dt, add_animal_info=True):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Process data from subfolders in a folder and save to Excel.")
-    parser.add_argument("--path", help="Path to the data folder", type=str, required=True)
-    parser.add_argument("--exp_details_path", help="Path to the Excel file containing experiment details", type=str, required=True)
+    parser.add_argument("--folder", help="Path to the data folder", type=str, required=True)
+    parser.add_argument("--ct", help="Path to the Excel file containing experiment details", type=str, required=True)
+    parser.add_argument('--output', type=str, required=True, help='Path to the output folder')
     args = parser.parse_args()
 
-    exp_df = pd.read_excel(args.exp_details_path, usecols=[0, 1, 2, 3, 4])
+    exp_df = pd.read_excel(args.ct, usecols=[0, 1, 2, 3, 4])
     exp_df.columns = ['SN', 'Animal', 'Sex', 'Subject ID', 'Group ']
 
-    for subfolder in sorted(os.listdir(args.path)):
+    for subfolder in sorted(os.listdir(args.folder)):
         ct = subfolder.split()[-2] # if using old WT SAA data, use subfolder.split()[-1]. For newer data following established naming convention, use subfolder.split()[-2]
         dt = subfolder.split()[0]
-        GS_DIR_PATH = os.path.join(args.path, subfolder)
+        GS_DIR_PATH = os.path.join(args.folder, subfolder)
         try:
             if os.path.isdir(GS_DIR_PATH):
-                process_and_save_data(GS_DIR_PATH, exp_df, ct, dt, add_animal_info=True)
+                process_and_save_data(GS_DIR_PATH, exp_df, ct, dt, args.output, add_animal_info=True)
                 print(f"Data processed successfully for {subfolder}!\n")
         except Exception as e:
             print(f"Error processing {GS_DIR_PATH.split(os.path.sep)[-1]} ::\n\n {e}\n")
