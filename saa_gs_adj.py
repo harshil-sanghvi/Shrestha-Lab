@@ -183,7 +183,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Process data from subfolders in a folder and save to Excel.")
     parser.add_argument("--path", help="Path to the data folder", type=str, required=True)
     parser.add_argument("--exp_details_path", help="Path to the Excel file containing experiment details", type=str, required=True)
-    parser.add_argument("time_discrepancy", help="Path to the folder containing time discrepancy Excel files", type=str, required=True)
+    parser.add_argument("--time_discrepancy", help="Path to the folder containing time discrepancy Excel files", type=str, required=True)
     args = parser.parse_args()
 
     print("Extracting time discrepancies...")
