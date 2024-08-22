@@ -116,7 +116,6 @@ def align_center(x):
 
 def process_and_save_data(PATH, exp_df, ct, dt, add_animal_info=True):
     """Process data in subfolders of PATH and save to Excel."""
-    """Process data in subfolders of PATH and save to Excel."""
     title_split = os.path.normpath(PATH).split(os.sep)  # Normalize the path to handle different OS path separators
     SAVE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'Results')
     
