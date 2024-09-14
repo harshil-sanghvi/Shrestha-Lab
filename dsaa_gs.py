@@ -260,6 +260,8 @@ if __name__ == '__main__':
     exp_df.columns = ['SN', 'Animal', 'Sex', 'Subject ID', 'Group ']
 
     for subfolder in sorted(os.listdir(args.folder)):
+        if "archive" in subfolder.lower():
+            continue
         ct = subfolder.split()[-2] # if using old WT SAA data, use subfolder.split()[-1]. For newer data following established naming convention, use subfolder.split()[-2]
         dt = subfolder.split()[0]
         GS_DIR_PATH = os.path.join(args.folder, subfolder)
