@@ -58,7 +58,8 @@ class FreezeFrame:
     def get_cohort_data(self, ct):
         '''Function to extract the cohort data from the CT file.'''
         df = pd.read_excel(self.ct_path, usecols=range(5))
-        ct_row_index = df.index[df['Unnamed: 0'].str.contains(ct, na=False)].tolist()[0]
+        
+        ct_row_index = df.index[df.iloc[:, 0].str.contains(ct, na=False)].tolist()[0]
 
         # Extract rows following the CT row until a row with all NaN values is encountered
         new_df_rows = []
