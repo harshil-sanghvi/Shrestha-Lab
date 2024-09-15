@@ -105,6 +105,10 @@ class FreezeFrame:
                 file_path = os.path.join(self.folder_path, subfolder, file) # set the file path
                 data = self.process_file(file_path, sheet_name) # process the FreezeFrame data
                 final = pd.merge(self.ct_df, data, on='Animal ID', how='inner') # merge the cohort data with the FreezeFrame data
+                # if merged data is empty then save the data as it is
+                if final.empty:
+                    data.style.apply(self.align_center, axis=0).to_excel(writer, sheet_name=sheet_name.split('_')[-1], index=True)
+                    continue
                 final.style.apply(self.align_center, axis=0).to_excel(writer, sheet_name=sheet_name.split('_')[-1], index=True) # write the data to the Excel file
         writer.close() # close the ExcelWriter object
 

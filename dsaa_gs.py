@@ -229,8 +229,11 @@ def process_and_save_data(PATH, exp_df, ct, dt, SAVE_DIR, add_animal_info=True):
                 GS_DIR_PATH = os.path.join(GS_DIR_PATH, 'csv files')
                 data_df = process_gs_data(GS_DIR_PATH)  # Assuming process_data is defined elsewhere
                 if add_animal_info:
-                    data_df = add_animal_details(data_df, exp_df, ct, dt)
-                    data_df.set_index('SN', inplace=True)
+                    try:
+                        data_df = add_animal_details(data_df, exp_df, ct, dt)
+                        data_df.set_index('SN', inplace=True)
+                    except Exception as e:
+                        print(f"Error adding animal details to {subfolder}: {e}")
                     data_df.style.apply(align_center, axis=0).to_excel(writer, sheet_name=subfolder, index=True)
             else:
                 wasSuccessful = False
@@ -260,7 +263,7 @@ if __name__ == '__main__':
     exp_df.columns = ['SN', 'Animal', 'Sex', 'Subject ID', 'Group ']
 
     for subfolder in sorted(os.listdir(args.folder)):
-        if "archive" in subfolder.lower():
+        if not 'CT' in subfolder.upper():
             continue
         ct = subfolder.split()[-2] # if using old WT SAA data, use subfolder.split()[-1]. For newer data following established naming convention, use subfolder.split()[-2]
         dt = subfolder.split()[0]

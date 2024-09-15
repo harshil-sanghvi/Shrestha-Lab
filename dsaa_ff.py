@@ -55,7 +55,7 @@ class FreezeFrame:
         '''Function to process the folder containing the FreezeFrame data.'''
         subfolders = [f for f in os.listdir(self.folder_path) if os.path.isdir(os.path.join(self.folder_path, f))] # get all subfolders
         for subfolder in subfolders: # for each subfolder
-            if 'Archive' in subfolder: # if the subfolder contains 'Archive', skip it
+            if 'archive' in subfolder.lower() or 'timestamps' in subfolder.lower():
                 continue
             ct = subfolder.split()[-2] # extract the CT from the subfolder name
             print('\n=============================', ct, '=============================')
@@ -72,6 +72,7 @@ class FreezeFrame:
     def process_subfolder(self, subfolder):
         '''Function to process the FreezeFrame data for each subfolder.'''
         output_path = os.path.join(self.output, subfolder + '.xlsx') # set the output path
+        
         ct = subfolder.split()[-2] # extract the CT from the subfolder name
         writer = ExcelWriter(output_path) # create an ExcelWriter object
         for file in os.listdir(os.path.join(self.folder_path, subfolder)): # for each file in the subfolder
