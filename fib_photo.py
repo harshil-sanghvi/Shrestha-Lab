@@ -427,40 +427,40 @@ class Mouse:
         Returns:
         None
         """
-        # Set x-axis tick labels based on the pre and post time
-        xticklabels = np.arange(-self.PRE_TIME, min(self.POST_TIME, 60) + 10, 10)
 
-        # Calculate xticks based on the number of intervals
-        xticks = np.linspace(0, len(self.dFF_snips[0]) - 1, len(xticklabels)).astype(int)
+        # Calculate actual time values for x-axis
+        time_range = np.linspace(-self.PRE_TIME, self.POST_TIME, len(self.dFF_snips[0]))
 
-        # Reverse the dFF_snips array for plotting
-        dFF_snips_reversed = np.flip(self.dFF_snips, axis=0)
+        # Define x-tick labels at 10-second intervals
+        xtick_labels = np.arange(0, self.POST_TIME + 1, 10)
 
-        # Create figure and axis
+        # Create the figure and axis for the heatmap
         fig, ax = plt.subplots(figsize=(size_x, size_y))
 
-        # Plot the heatmap using Seaborn
-        sns.heatmap(dFF_snips_reversed, cmap='jet', ax=ax)
+        # Reverse the order of dFF_snips for display purposes
+        dFF_snips_reversed = np.flip(self.dFF_snips, axis=0)
+
+        # Generate the heatmap with Seaborn
+        sns.heatmap(dFF_snips_reversed, cmap='jet', ax=ax, cbar=True)
 
         # Set labels and title
         ax.set_ylabel(ylabel)
         ax.set_title(title)
 
-        # Set x-axis ticks and labels
-        ax.set_xticks(xticks)
-        ax.set_xticklabels(xticklabels)
+        # Map the x-ticks to the appropriate time points
+        xtick_positions = np.interp(xtick_labels, time_range, np.arange(len(self.dFF_snips[0])))
+        ax.set_xticks(xtick_positions)
+        ax.set_xticklabels(xtick_labels)
 
-        # Set y-axis ticks and labels (reversed and centered)
-        yticklabels_reversed = np.arange(1, len(self.dFF_snips) + 1)[::-1]
+        # Set the y-ticks and reverse the labels for correct CS event display
         ax.set_yticks(np.arange(len(self.dFF_snips)) + 0.5)
-        ax.set_yticklabels(yticklabels_reversed)
+        ax.set_yticklabels(np.arange(1, len(self.dFF_snips) + 1)[::-1])
 
-        # Set plot limits
-        ax.set_xlim(0, len(self.dFF_snips[0]))
+        # Set the axis limits
+        ax.set_xlim(0, len(self.dFF_snips[0]) - 1)
         ax.set_ylim(0, len(self.dFF_snips))
 
-        # Save and display the plot
-        self.save_plot(fig, 'heatmaps', 'heatmaps')
+        self.save_plot(fig, 'heatmaps', 'heatmap_new')
         plt.show()
 
     def setup_plot_style(self):
