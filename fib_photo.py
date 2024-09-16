@@ -10,6 +10,17 @@ from scipy.stats import sem
 import seaborn as sns
 import os
 import warnings
+import logging
+
+# Set up logging configuration
+logging.basicConfig(
+    level=logging.INFO,  # Adjust the logging level as needed
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('fib_photo.log'),  # Log to a file
+        logging.StreamHandler()  # Also output to the console
+    ]
+)
 
 # Ignore warnings
 warnings.filterwarnings("ignore")
@@ -115,7 +126,7 @@ class Mouse:
         if self.isTrain:
             t2 = data.epocs.CS__.offset[1] + 1800
         else:
-            t2 = None  # No specific t2, load from t1 onwards
+            t2 = 0  # No specific t2, load from t1 onwards
 
         # Load the relevant data based on the time range
         self.data = tdt.read_block(self.BLOCK_PATH, t1=self.t1, t2=t2)
@@ -541,13 +552,34 @@ def main(block_path, is_train=True, pre_time=1, post_time=60):
     - post_time (int): Post-stimulus time in seconds.
     """
     mousename = os.path.basename(block_path)
-    print(f'######## Initializing Mouse {mousename} ########')
+    print(f'\n\n######## Initializing Mouse {mousename} ########')
 
     # Create Mouse instance and start analysis
     mouse = Mouse(block_path, isTrain=is_train, PRE_TIME=pre_time, POST_TIME=post_time)
     mouse.start_analysis(mousename)
 
-if __name__ == "__main__":
-    BLOCK_PATH = '/Users/harshil/Library/CloudStorage/GoogleDrive-Harshil.Sanghvi@stonybrook.edu/Shared drives/NBB_ShresthaLab_SharedDrive/2 Data/Behavior & FibPho/504 SL - Behavior Room/FibPho Data/PL_CAG.GCaMP6f_FCtag.O4E PTC/20230706 PL_CAG.GCaMP6f_FCtag.O4E CT1 PTC/20230710 PL_CAG.GCaMP6f_FCtag.O4E CT1 PTC Training/Pavlovian_cTC_v1-230710-112619/A848-230710-142846'
+def process_directory(dir_path):
+    for root, _, files in os.walk(dir_path):
+        root_lower = root.lower()
+        
+        # Skip processing if "skip", "archive", or "habituation" is in the path
+        if any(keyword in root_lower for keyword in ('skip', 'archive', 'habituation')):
+            logging.info(f"Skipping {root} due to keyword match i.e. 'skip', 'archive', 'habituation'")
+            continue
+        
+        # Check for .tev files and process if found
+        if any(file.endswith('.tev') for file in files):
+            is_train = 'train' in root_lower
+            logging.info(f"Processing {root}. Is Train: {is_train}")
+            try:
+                main(root, is_train=is_train)
+                logging.info(f"Processed {root}")
+            except Exception as e:
+                logging.error(f"Error processing {root}: {e}")
 
-    main(BLOCK_PATH)
+if __name__ == "__main__":
+    dir_path = input("Enter the directory path: ").strip()
+    if os.path.isdir(dir_path):
+        process_directory(dir_path)
+    else:
+        print("The provided path is not a valid directory.")
