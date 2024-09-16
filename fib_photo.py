@@ -7,12 +7,22 @@ from scipy.signal import savgol_filter
 from scipy.integrate import trapezoid
 import matplotlib.font_manager as fm
 from scipy.stats import sem
-import matplotlib.patches as mpatches
 import seaborn as sns
 import os
+import warnings
+
+# Ignore warnings
+warnings.filterwarnings("ignore")
 
 class Mouse:
-    def __init__(self, file_path, isTrain, PRE_TIME, POST_TIME, signal = "_465A", control = "_405A", isReins = False):
+    def __init__(self, 
+                 file_path: str, 
+                 isTrain: bool, 
+                 PRE_TIME: int, 
+                 POST_TIME: int, 
+                 signal: str = "_465A", 
+                 control: str = "_405A", 
+                 isReins: bool = False):
         """
         A class for representing mouse data and performing analysis.
 
@@ -61,35 +71,29 @@ class Mouse:
         - get_and_plot_AUC(): Calculate and plot area under the curve (AUC) values.
         """
 
+        # File path and stimulus times
         self.BLOCK_PATH = file_path
-        self.data = None
-        self.time = None
-        self.fs = None
-        self.isTrain = isTrain
-        self.CSon = None
-        self.CSoff = None
-        self.USon = None
-        self.USoff = None
-        self.samplingrate = None
-        self.signal_lowpass = None
-        self.control_lowpass = None
-        self.signal_doubleExpFit = None
-        self.control_doubleExpFit = None
-        self.signal_doubleFittedCurve = None
-        self.control_doubleFittedCurve = None
-        self.dFF = None
-        self.Y_fit_all = None
-        self.Y_dF_all = None
-        self.zScore = None
-        self.dFF_snips = None
         self.PRE_TIME = PRE_TIME
         self.POST_TIME = POST_TIME
-        self.peri_time = None
-        self.t1 = 20
-        self.savgol_zscore = None
+        self.isTrain = isTrain
         self.isReins = isReins
+        self.t1 = 20
+        
+        # Initialize data-related attributes to None
+        self.data = self.time = self.fs = None
+        self.CSon = self.CSoff = self.USon = self.USoff = None
+        self.samplingrate = None
+        self.signal_lowpass = self.control_lowpass = None
+        self.signal_doubleExpFit = self.control_doubleExpFit = None
+        self.signal_doubleFittedCurve = self.control_doubleFittedCurve = None
+        self.dFF = self.Y_fit_all = self.Y_dF_all = self.zScore = None
+        self.dFF_snips = self.peri_time = self.savgol_zscore = None
 
+        # Load data and calculate properties
+        print('-------- Loading Data --------')
         self.__load_data()
+
+        print('-------- Calculating Properties --------')
         self.__calculate_properties(signal, control)
 
     #Private Methods
@@ -97,25 +101,24 @@ class Mouse:
         """
         Load data from the specified file.
 
-        Reads the data from the file specified by BLOCK_PATH attribute
-        and extracts relevant information such as signal, control,
-        onset and offset times of CS and US stimuli. This method sets the attribute self.data.
+        Reads the data from the file specified by BLOCK_PATH and extracts relevant
+        information such as signal, control, and onset/offset times of CS and US stimuli.
+        This method sets the attribute self.data.
 
         Returns:
         None
         """
+        # Load the full block of data initially
         data = tdt.read_block(self.BLOCK_PATH)
-        print(data.epocs)
 
+        # Determine time range based on training mode
         if self.isTrain:
-            t2 = data.epocs.End_.onset[-1]
-            self.data = tdt.read_block(self.BLOCK_PATH, t1=self.t1)
-            # self.data = tdt.read_block(self.BLOCK_PATH, t1=data.epocs.PrtB.onset[0], t2=data.epocs.CS__.offset[1] + 1860)
-
+            t2 = data.epocs.CS__.offset[1] + 1800
         else:
-            self.data = tdt.read_block(self.BLOCK_PATH, t1=self.t1)
-            # self.data = tdt.read_block(self.BLOCK_PATH, t1=data.epocs.PrtB.onset[0], t2=data.epocs.CS__.offset[1] + 1860)
+            t2 = None  # No specific t2, load from t1 onwards
 
+        # Load the relevant data based on the time range
+        self.data = tdt.read_block(self.BLOCK_PATH, t1=self.t1, t2=t2)
 
     def __calculate_properties(self, signal, control):
         """
@@ -123,49 +126,56 @@ class Mouse:
 
         Calculates properties such as sampling rate, time vector,
         onset and offset times of CS and US stimuli, and performs
-        low-pass filtering, photobleaching correction (double-fit subtraction), motion correction(linear fit subtraction).
+        low-pass filtering, photobleaching correction (double-fit subtraction), 
+        and motion correction (linear fit subtraction).
 
         Returns:
         None
         """
-
+        # Fetching the signal and control data, ensuring same length
         self.signal = self.data.streams[signal].data
         self.control = self.data.streams[control].data
-        print(len(self.signal), len(self.control))
         max_len = min(len(self.signal), len(self.control))
-        self.signal = self.signal[:max_len]
-        self.control = self.control[:max_len]
-
+        self.signal, self.control = self.signal[:max_len], self.control[:max_len]
+        
+        # Calculate the sampling rate and time vector
         self.fs = self.data.streams[signal].fs
-        self.time = np.linspace(1,len(self.signal), len(self.signal))/self.data.streams[signal].fs
+        self.time = np.linspace(1, len(self.signal), len(self.signal)) / self.fs
+
+        # Calculate CS and US onsets/offsets for training data
         if self.isTrain:
             self.USon = self.data['epocs']['Shck']['onset'] - self.t1
             self.USoff = self.data['epocs']['Shck']['offset'] - self.t1
+
         if not self.isReins:
             self.CSon = self.data['epocs']['CS__']['onset'] - self.t1
             self.CSoff = self.data['epocs']['CS__']['offset'] - self.t1
-        self.samplingrate = self.data.streams[signal].fs
-        self.signal_lowpass, self.control_lowpass = self.__lowpass_filter(self.signal, self.control, self.samplingrate)
-        (self.signal_doubleExpFit,
-         self.control_doubleExpFit,
-         self.signal_doubleFittedCurve,
-         self.control_doubleFittedCurve) = self.__doubleFitSubtraction(self.signal_lowpass, self.control_lowpass, self.time)
 
-        self.dFF, self.Y_dF_all, self.Y_fit_all = self.__linearFitSubtraction(self.signal_doubleExpFit, self.control_doubleExpFit, self.signal_doubleFittedCurve)
+        # Perform low-pass filtering on the signal and control
+        self.signal_lowpass, self.control_lowpass = self.__lowpass_filter(self.signal, self.control, self.fs)
 
-        self.zScore = (self.Y_dF_all - np.mean(self.Y_dF_all))/np.std(self.Y_dF_all)
+        # Photobleaching correction (double exponential fit subtraction)
+        self.signal_doubleExpFit, self.control_doubleExpFit, self.signal_doubleFittedCurve, self.control_doubleFittedCurve = (
+            self.__doubleFitSubtraction(self.signal_lowpass, self.control_lowpass, self.time)
+        )
+
+        # Motion correction (linear fit subtraction)
+        self.dFF, self.Y_dF_all, self.Y_fit_all = self.__linearFitSubtraction(
+            self.signal_doubleExpFit, self.control_doubleExpFit, self.signal_doubleFittedCurve
+        )
+
+        # Calculate z-scores
+        self.zScore = (self.Y_dF_all - np.mean(self.Y_dF_all)) / np.std(self.Y_dF_all)
         self.savgol_zscore = self.__get_savgol_zscore()
-        # self.dFF = self.__remove_outliers(self.dFF)
-        # self.zScore = self.__remove_outliers(self.zScore)
 
-        self.dFF_snips, self.peri_time = self.__calculate_dFF_snips(self.signal, self.savgol_zscore, self.fs, self.CSon, self.time, self.PRE_TIME, self.POST_TIME)
+        # Calculate delta F/F snippets
+        self.dFF_snips, self.peri_time = self.__calculate_dFF_snips(
+            self.signal, self.savgol_zscore, self.fs, self.CSon, self.time, self.PRE_TIME, self.POST_TIME
+        )
 
     def __lowpass_filter(self, signal, control, samplingrate):
         """
-        Apply low-pass filter to the signal and control data.
-
-        Applies a Butterworth low-pass filter to the signal and control
-        data with the specified sampling rate.
+        Apply low-pass Butterworth filter to the signal and control data.
 
         Parameters:
         - signal (array): Signal data to be filtered.
@@ -175,13 +185,16 @@ class Mouse:
         Returns:
         Tuple containing the filtered signal and control data.
         """
-        Order = 6
-        Cutoff = 6
-        b, a = butter(Order // 2, Cutoff / (samplingrate / 2), btype='low')
-        signal_data = filtfilt(b, a, signal)
-        control_data = filtfilt(b, a, control)
+        order = 3  # Using a lower filter order (6 // 2 = 3) for computational efficiency
+        cutoff = 6
+        nyquist_freq = samplingrate / 2  # Nyquist frequency
+        normalized_cutoff = cutoff / nyquist_freq
 
-        return signal_data, control_data
+        b, a = butter(order, normalized_cutoff, btype='low')
+        filtered_signal = filtfilt(b, a, signal)
+        filtered_control = filtfilt(b, a, control)
+
+        return filtered_signal, filtered_control
 
     def __doubleFitSubtraction(self, signal, control, time):
         """
@@ -253,57 +266,45 @@ class Mouse:
         """
         Calculate delta F/F snippets.
 
-        Calculates delta F/F snippets for each CS event based on the signal
-        data, z-score, sampling frequency, onset and offset times of CS stimuli,
-        time vector, and pre-stimulus and post-stimulus durations.
-
         Parameters:
         - signal (array): Signal data.
         - zscore (array): Z-score calculated from the signal data.
         - fs (int): Sampling frequency of the data.
-        - CSoff (array): Offset times of CS stimuli.
+        - CSon (array): Onset times of CS stimuli.
         - time (array): Time vector.
         - PRE_TIME (int): Pre-stimulus duration.
         - POST_TIME (int): Post-stimulus duration.
 
         Returns:
-        Tuple containing the delta F/F snippets and corresponding time vector.
+        Tuple containing the delta F/F snippets and corresponding peri-event time vector.
         """
-        TRANGE = [-PRE_TIME*np.floor(fs), POST_TIME*np.floor(fs)]
+        # Calculate sample range for pre and post stimulus durations
+        trange = np.array([-PRE_TIME, POST_TIME]) * fs
+        trange = trange.astype(int)
+        
         dFF_snips = []
-        array_ind = []
-        pre_stim = []
-        post_stim = []
+        
+        # Precompute length of the time snippets to avoid recalculating in the loop
+        snippet_length = trange[1] - trange[0]
+
         for on in CSon:
-            if on < PRE_TIME:
-                dFF_snips.append(np.zeros(TRANGE[1]-TRANGE[0]))
-            else:
-                array_ind.append(np.where(time > on)[0][0])
-                pre_stim.append(array_ind[-1] + TRANGE[0])
-                post_stim.append(array_ind[-1] + TRANGE[1])
-                dFF_snips.append(zscore[int(pre_stim[-1]):int(post_stim[-1])])
-        mean_dFF_snips = np.mean(dFF_snips, axis=0)
-        std_dFF_snips = np.std(mean_dFF_snips, axis=0)
-        peri_time = np.linspace(1, len(mean_dFF_snips), len(mean_dFF_snips))/fs - PRE_TIME
-        return dFF_snips, peri_time
+            if on >= PRE_TIME:  # Skip events occurring before PRE_TIME
+                # Get the index of the CS onset in the time array
+                onset_idx = np.searchsorted(time, on)
 
-    def __remove_outliers(self, signal):
-        q25, q75 = np.percentile(signal, [25, 75])
-        iqr = q75 - q25
-        # Define the thresholds for extreme values based on IQR
-        mean = np.mean(signal)
-        lower_threshold = mean - 10 * iqr
-        upper_threshold = mean + 10 * iqr
+                # Extract the pre-stimulus and post-stimulus window
+                pre_idx = onset_idx + trange[0]
+                post_idx = onset_idx + trange[1]
 
-        # Find indices of extreme values (both peaks and troughs)
-        extreme_indices = np.where((signal < lower_threshold) | (signal > upper_threshold))[0]
+                if pre_idx >= 0 and post_idx < len(zscore):  # Ensure indices are within bounds
+                    dFF_snips.append(zscore[pre_idx:post_idx])
+                else:
+                    dFF_snips.append(np.zeros(snippet_length))  # Fill with zeros if out of bounds
 
-        # Create a copy of the signal to modify
-        signal_corrected = signal.copy()
+        # Calculate the peri-event time vector
+        peri_time = np.linspace(-PRE_TIME, POST_TIME, snippet_length)
 
-        # Replace extreme values with the mean of the entire signal
-        signal_corrected[extreme_indices] = mean
-        return signal_corrected
+        return np.array(dFF_snips), peri_time
 
     def __get_savgol_zscore(self):
         window_length = 6501
@@ -321,7 +322,7 @@ class Mouse:
         ax.fill_between([xmin, xmax], ymin, ymax, color=color, alpha=alpha)
         ax.plot([xmin, xmax], [ymax, ymax], color=offset_bar_color, linewidth=2, label=label)
 
-    def get_and_plot_PETH(self, size_x=8, size_y=6):
+    def get_and_plot_PETH(self, filename, size_x=8, size_y=6):
         # Colors
         offset_cs_color = '#BB1F1F'
         offset_us_color = '#040404'
@@ -362,11 +363,14 @@ class Mouse:
         ax.legend()
 
         # Save and show the plot
-        self.save_plot(fig, 'peth', 'peth')
-        plt.show()
+        self.save_plot(fig, 'peth', filename)
+        print('########## Saved PETH ##########')
 
+    def log_auc(self, mousename, auc_values):
+        with open(f'auc.txt', 'a') as f:
+            f.write(f'{mousename}: {auc_values}\n')
 
-    def get_and_plot_AUC(self):
+    def get_and_plot_AUC(self, filename):
         """
         Calculate and plot area under the curve (AUC) values for each CS event.
 
@@ -390,6 +394,8 @@ class Mouse:
                 auc_values_cs[i] = trapezoid(dFF[start_index:end_index + 1], time_subset)
                 std_cs[i] = np.std(dFF[start_index:end_index + 1])
 
+        self.log_auc(filename, auc_values_cs)
+        
         # Plotting AUC values
         plt.figure(figsize=(8, 6))
         index = np.arange(1, num_events + 1)
@@ -406,12 +412,11 @@ class Mouse:
 
         plt.tight_layout()
 
-        self.save_plot(plt, 'auc', 'auc')
-        plt.show()
-
+        self.save_plot(plt, 'auc', filename)
+        print('########## Saved AUC ##########')
         return auc_values_cs, std_cs
 
-    def plot_heat_map(self, size_x, size_y, title, ylabel=""):
+    def plot_heat_map(self, size_x, size_y, filename, title, ylabel=""):
         """
         Plot a heatmap of the delta F/F snippets using Seaborn.
 
@@ -460,8 +465,8 @@ class Mouse:
         ax.set_xlim(0, len(self.dFF_snips[0]) - 1)
         ax.set_ylim(0, len(self.dFF_snips))
 
-        self.save_plot(fig, 'heatmaps', 'heatmap_new')
-        plt.show()
+        self.save_plot(fig, 'heatmaps', filename)
+        print('########## Saved Heatmap ##########')
 
     def setup_plot_style(self):
         plt.style.use('seaborn-v0_8-white')
@@ -498,12 +503,13 @@ class Mouse:
             self.plot_pair(xmin=stimON[i], xmax=stimOFF[i], ax=ax, alpha=alpha, color=highlight_color, ymin=ymin, ymax=ymax,
                     label=(label if i == 0 else ""), offset_bar_color=offset_color)
 
-    def create_mouse_plots(self, prop):
+    def create_mouse_plots(self, prop, filename):
         last_index = np.where(self.time > self.CSoff[-1] + 120)[0][0]
 
         # dFF plot
         dFF_fig = self.plot_dFF_trace(last_index)
-        self.save_plot(dFF_fig, 'dFF', 'dFF')
+        self.save_plot(dFF_fig, 'dFF', filename)
+        print('########## Saved dFF ##########')
 
         # Z-score plot
         zscore_fig, zscore_ax = self.plot_zscore_trace(prop)
@@ -512,14 +518,36 @@ class Mouse:
         self.plot_stimulus(self.CSoff - 2, self.CSoff, ymin, ymax + 1, zscore_ax, alpha=0, highlight_color=None, label="US", offset_color='#040404')
         zscore_ax.legend(loc='upper left', fontsize=8, bbox_to_anchor=(0, 1.2), ncol=2)
         zscore_ax.grid(False)
-        self.save_plot(zscore_fig, 'zscore', 'zscore')
+        self.save_plot(zscore_fig, 'zscore', filename)
+        print('########## Saved Z-score ##########')
+
+    def start_analysis(self, filename):
+        print('\n********** Starting Analysis **********\n')
+        prop = self.setup_plot_style()
+        self.get_and_plot_AUC(filename)
+        self.get_and_plot_PETH(filename)
+        self.plot_heat_map(8, 4, filename, title = "", ylabel="")
+        self.create_mouse_plots(prop, filename)
+        print('\n********** Analysis Completed **********\n')
+
+def main(block_path, is_train=True, pre_time=1, post_time=60):
+    """
+    Initialize mouse data processing and start analysis.
+
+    Parameters:
+    - block_path (str): Path to the data file.
+    - is_train (bool): Whether the data is for training or not.
+    - pre_time (int): Pre-stimulus time in seconds.
+    - post_time (int): Post-stimulus time in seconds.
+    """
+    mousename = os.path.basename(block_path)
+    print(f'######## Initializing Mouse {mousename} ########')
+
+    # Create Mouse instance and start analysis
+    mouse = Mouse(block_path, isTrain=is_train, PRE_TIME=pre_time, POST_TIME=post_time)
+    mouse.start_analysis(mousename)
 
 if __name__ == "__main__":
     BLOCK_PATH = '/Users/harshil/Library/CloudStorage/GoogleDrive-Harshil.Sanghvi@stonybrook.edu/Shared drives/NBB_ShresthaLab_SharedDrive/2 Data/Behavior & FibPho/504 SL - Behavior Room/FibPho Data/PL_CAG.GCaMP6f_FCtag.O4E PTC/20230706 PL_CAG.GCaMP6f_FCtag.O4E CT1 PTC/20230710 PL_CAG.GCaMP6f_FCtag.O4E CT1 PTC Training/Pavlovian_cTC_v1-230710-112619/A848-230710-142846'
-    mouse = Mouse(BLOCK_PATH, isTrain=True, PRE_TIME=1, POST_TIME=60)
-    
-    prop = mouse.setup_plot_style()
-    mouse.get_and_plot_AUC()
-    mouse.get_and_plot_PETH()
-    mouse.plot_heat_map(8, 4, title = "", ylabel="")
-    mouse.create_mouse_plots(prop)
+
+    main(BLOCK_PATH)
