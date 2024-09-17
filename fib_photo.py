@@ -374,7 +374,7 @@ class Mouse:
         ax.legend()
 
         # Save and show the plot
-        self.save_plot(fig, 'peth', filename)
+        self.save_plot(fig, 'PETH Histograms', filename)
         print('########## Saved PETH ##########')
 
     def log_auc(self, mousename, auc_values):
@@ -423,7 +423,7 @@ class Mouse:
 
         plt.tight_layout()
 
-        self.save_plot(plt, 'auc', filename)
+        self.save_plot(plt, 'AUC Plots', filename)
         print('########## Saved AUC ##########')
         return auc_values_cs, std_cs
 
@@ -476,7 +476,7 @@ class Mouse:
         ax.set_xlim(0, len(self.dFF_snips[0]) - 1)
         ax.set_ylim(0, len(self.dFF_snips))
 
-        self.save_plot(fig, 'heatmaps', filename)
+        self.save_plot(fig, 'Heatmaps', filename)
         print('########## Saved Heatmap ##########')
 
     def setup_plot_style(self):
@@ -485,9 +485,31 @@ class Mouse:
         return prop
 
     def save_plot(self, fig, output_dir, filename):
+        animal_id = filename.split('_')[0].split('-')[0]
+        experiment_name = filename.split('-')[0].split('_')[-1]
+        
+        output_dir_lower = output_dir.lower()
+        file_suffix = ''
+
+        if 'heatmap' in output_dir_lower:
+            file_suffix = 'heatmap'
+        elif 'auc' in output_dir_lower:
+            file_suffix = 'AUC'
+        elif 'peth' in output_dir_lower:
+            file_suffix = 'PETH'
+        elif 'dff' in output_dir_lower:
+            file_suffix = 'dFF'
+        elif 'zscores' in output_dir_lower:
+            file_suffix = 'Zscores'
+
+        if self.isTrain:
+            filename = f'{animal_id}_train_{file_suffix}.png'
+        else:
+            filename = f'{animal_id}_{experiment_name}_{file_suffix}.png'
+
+        output_dir = os.path.join(output_dir, animal_id)
         os.makedirs(output_dir, exist_ok=True)
-        fig.tight_layout()
-        fig.savefig(f'{output_dir}/{filename}.png')
+        fig.savefig(os.path.join(output_dir, filename), dpi=300, bbox_inches='tight')
 
     def plot_dFF_trace(self, last_index):
         fig, ax = plt.subplots(figsize=(12, 4))
@@ -529,7 +551,7 @@ class Mouse:
         self.plot_stimulus(self.CSoff - 2, self.CSoff, ymin, ymax + 1, zscore_ax, alpha=0, highlight_color=None, label="US", offset_color='#040404')
         zscore_ax.legend(loc='upper left', fontsize=8, bbox_to_anchor=(0, 1.2), ncol=2)
         zscore_ax.grid(False)
-        self.save_plot(zscore_fig, 'zscore', filename)
+        self.save_plot(zscore_fig, 'Zscores', filename)
         print('########## Saved Z-score ##########')
 
     def start_analysis(self, filename):
@@ -563,8 +585,8 @@ def process_directory(dir_path):
         root_lower = root.lower()
         
         # Skip processing if "skip", "archive", or "habituation" is in the path
-        if any(keyword in root_lower for keyword in ('skip', 'archive', 'habituation')):
-            logging.info(f"Skipping {root} due to keyword match i.e. 'skip', 'archive', 'habituation'")
+        if any(keyword in root_lower for keyword in ('archive', 'habituation')):
+            logging.info(f"Skipping {root} due to keyword match i.e. 'archive', 'habituation'")
             continue
         
         # Check for .tev files and process if found
