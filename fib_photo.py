@@ -632,7 +632,7 @@ def main(block_path, is_train=True, pre_time=1, post_time=60, auc_log_path='auc.
 
     # Create Mouse instance and start analysis
     mouse = Mouse(block_path, isTrain=is_train, PRE_TIME=pre_time, POST_TIME=post_time, aucLogPath=auc_log_path, peth_excel_output_dir=peth_excel_output_dir)
-    mouse.start_analysis(mousename, plot_heatmap=False, plot_auc=False, plot_peth=True, plot_dff_and_zscore=False, save_only_peth_excel=True)
+    mouse.start_analysis(mousename)
 
 def determine_experiment_type(line: str) -> str:
     """
