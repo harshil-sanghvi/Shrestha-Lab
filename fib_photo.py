@@ -97,9 +97,9 @@ class Mouse:
         self.isTrain = isTrain
         self.isReins = isReins
         self.aucLogPath = aucLogPath
-        self.t1 = 20
         
         # Initialize data-related attributes to None
+        self.t1 = None
         self.data = self.time = self.fs = None
         self.CSon = self.CSoff = self.USon = self.USoff = None
         self.samplingrate = None
@@ -130,6 +130,9 @@ class Mouse:
         """
         # Load the full block of data initially
         data = tdt.read_block(self.BLOCK_PATH)
+
+        # Determine the first time point
+        self.t1 = data.epocs.PrtB.onset[0]
 
         # Determine time range based on training mode
         if self.isTrain:
@@ -167,9 +170,8 @@ class Mouse:
             self.USon = self.data['epocs']['Shck']['onset'] - self.t1
             self.USoff = self.data['epocs']['Shck']['offset'] - self.t1
 
-        if not self.isReins:
-            self.CSon = self.data['epocs']['CS__']['onset'] - self.t1
-            self.CSoff = self.data['epocs']['CS__']['offset'] - self.t1
+        self.CSon = self.data['epocs']['CS__']['onset'] - self.t1
+        self.CSoff = self.data['epocs']['CS__']['offset'] - self.t1
 
         # Perform low-pass filtering on the signal and control
         self.signal_lowpass, self.control_lowpass = self.__lowpass_filter(self.signal, self.control, self.fs)
@@ -692,7 +694,7 @@ def process_directory(dir_path, generate_auc_xlsx=True):
     # delete the file if it already exists to avoid appending data
     if os.path.exists(auc_log_path):
         os.remove(auc_log_path)
-        
+
     try:
         for root, _, files in os.walk(dir_path):
             root_lower = root.lower()
