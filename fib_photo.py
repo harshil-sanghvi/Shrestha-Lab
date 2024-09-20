@@ -1,5 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import re
+import pandas as pd
+from tqdm import tqdm
 from scipy.signal import butter, filtfilt
 from scipy.optimize import curve_fit
 import tdt
@@ -26,6 +29,9 @@ logging.basicConfig(
 # Ignore warnings
 warnings.filterwarnings("ignore")
 
+# Precompile the regex for floating point numbers
+FLOAT_PATTERN = re.compile(r'\d+\.\d+')
+
 class Mouse:
     def __init__(self, 
                  file_path: str, 
@@ -34,7 +40,8 @@ class Mouse:
                  POST_TIME: int, 
                  signal: str = "_465A", 
                  control: str = "_405A", 
-                 isReins: bool = False):
+                 isReins: bool = False,
+                 aucLogPath: str = 'auc.txt'):
         """
         A class for representing mouse data and performing analysis.
 
@@ -89,6 +96,7 @@ class Mouse:
         self.POST_TIME = POST_TIME
         self.isTrain = isTrain
         self.isReins = isReins
+        self.aucLogPath = aucLogPath
         self.t1 = 20
         
         # Initialize data-related attributes to None
@@ -381,7 +389,7 @@ class Mouse:
         print('########## Saved PETH ##########')
 
     def log_auc(self, mousename, auc_values):
-        with open(f'auc.txt', 'a') as f:
+        with open(self.aucLogPath, 'a') as f:
             f.write(f'{mousename}: {auc_values}\n')
 
     def get_and_plot_AUC(self, filename):
@@ -496,9 +504,18 @@ class Mouse:
         prop = fm.FontProperties(fname=fm.findfont(fm.FontProperties(family="Arial")))
         return prop
 
+    def determine_experiment_name(self, filename):
+        if 'ltm28d' in filename.lower():
+            return 'LTM28d'
+        elif 'ltm14d' in filename.lower():
+            return 'LTM14d'
+        elif 'ltm1' in filename.lower():
+            return 'LTM1'
+        return 'Training'
+    
     def save_plot(self, fig, output_dir, filename):
         animal_id = filename.split('_')[0].split('-')[0]
-        experiment_name = filename.split('-')[0].split('_')[-1]
+        experiment_name = self.determine_experiment_name(filename)
         
         output_dir_lower = output_dir.lower()
         file_suffix = ''
@@ -566,16 +583,22 @@ class Mouse:
         self.save_plot(zscore_fig, 'Zscores', filename)
         print('########## Saved Z-score ##########')
 
-    def start_analysis(self, filename):
+    def start_analysis(self, filename, plot_heatmap=True, plot_auc=True, plot_peth=True, plot_dff_and_zscore=True):
         print('\n********** Starting Analysis **********\n')
-        prop = self.setup_plot_style()
-        self.get_and_plot_AUC(filename)
-        self.get_and_plot_PETH(filename)
-        self.plot_heat_map(8, 4, filename, title = "", ylabel="")
-        self.create_mouse_plots(prop, filename)
+        
+        if plot_auc:
+            self.get_and_plot_AUC(filename)
+        if plot_peth:
+            self.get_and_plot_PETH(filename)
+        if plot_heatmap:
+            self.plot_heat_map(8, 4, filename, title = "", ylabel="")
+        if plot_dff_and_zscore:
+            prop = self.setup_plot_style()
+            self.create_mouse_plots(prop, filename)
+
         print('\n********** Analysis Completed **********\n')
 
-def main(block_path, is_train=True, pre_time=1, post_time=60):
+def main(block_path, is_train=True, pre_time=1, post_time=60, auc_log_path='auc.txt'):
     """
     Initialize mouse data processing and start analysis.
 
@@ -589,27 +612,112 @@ def main(block_path, is_train=True, pre_time=1, post_time=60):
     print(f'\n\n######## Initializing Mouse {mousename} ########')
 
     # Create Mouse instance and start analysis
-    mouse = Mouse(block_path, isTrain=is_train, PRE_TIME=pre_time, POST_TIME=post_time)
+    mouse = Mouse(block_path, isTrain=is_train, PRE_TIME=pre_time, POST_TIME=post_time, aucLogPath=auc_log_path)
     mouse.start_analysis(mousename)
 
-def process_directory(dir_path):
-    for root, _, files in os.walk(dir_path):
-        root_lower = root.lower()
+def determine_experiment_type(line: str) -> str:
+    """
+    Determine the type of experiment based on keywords in the line.
+    """
+    line_lower = line.lower()
+    if 'ltm28d' in line_lower:
+        return 'LTM28d'
+    elif 'ltm14d' in line_lower:
+        return 'LTM14d'
+    elif 'ltm1' in line_lower:
+        return 'LTM1'
+    return 'Training'
+
+def process_line(line: str) -> tuple:
+    """
+    Process a single line to extract the mouse name and CS values.
+    """
+    # Split the line and extract the mouse name    
+    mouse_name = line.split('_')[0].split('-')[0]
+    
+    # Find all CS values and round them to 2 decimal places
+    cs_values = [round(float(cs), 2) for cs in FLOAT_PATTERN.findall(line)]
+
+    return mouse_name, cs_values
+
+def read_data(file_path: str) -> dict:
+    """
+    Read the data from a file and categorize it into sheets.
+    """
+    data_sheets = {
+        "LTM1": [],
+        "LTM14d": [],
+        "LTM28d": [],
+        "Training": []
+    }
+
+    try:
+        with open(file_path, "r") as file:
+            lines = file.readlines()
+            for line in tqdm(lines, desc="Processing lines"):
+                experiment = determine_experiment_type(line)
+                mouse_name, cs_values = process_line(line)
+                row_data = [mouse_name] + cs_values
+                data_sheets[experiment].append(row_data)
+    except FileNotFoundError:
+        logging.error(f"File not found: {file_path}")
+        raise
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
+        raise
+
+    return data_sheets
+
+def write_to_excel(data_sheets: dict, output_path: str):
+    """
+    Write the data to an Excel file with multiple sheets.
+    """
+    # delete the file if it already exists to avoid appending data
+    if os.path.exists(output_path):
+        os.remove(output_path)
+
+    with pd.ExcelWriter(output_path, engine="xlsxwriter") as writer:
+        for sheet_name, data in tqdm(data_sheets.items(), desc="Writing to Excel"):
+            if data:
+                num_cs = max(len(row) - 1 for row in data)
+                column_names = ["Mouse Name"] + [f"CS{i+1}" for i in range(num_cs)]
+                df = pd.DataFrame(data, columns=column_names)
+                df.to_excel(writer, sheet_name=sheet_name, index=False)
+    logging.info(f"Excel file created successfully at {output_path}")
+
+def process_directory(dir_path, generate_auc_xlsx=True):
+    auc_log_path = os.path.join(os.getcwd(), 'auc.txt')
+    auc_xlsx_path = os.path.join(os.getcwd(), 'auc.xlsx')
+
+    # delete the file if it already exists to avoid appending data
+    if os.path.exists(auc_log_path):
+        os.remove(auc_log_path)
         
-        # Skip processing if "skip", "archive", or "habituation" is in the path
-        if any(keyword in root_lower for keyword in ('archive', 'habituation')):
-            logging.info(f"Skipping {root} due to keyword match i.e. 'archive', 'habituation'")
-            continue
-        
-        # Check for .tev files and process if found
-        if any(file.endswith('.tev') for file in files):
-            is_train = 'train' in root_lower
-            logging.info(f"Processing {root}. Is Train: {is_train}")
-            try:
-                main(root, is_train=is_train)
-                logging.info(f"Processed {root}")
-            except Exception as e:
-                logging.error(f"Error processing {root}: {e}")
+    try:
+        for root, _, files in os.walk(dir_path):
+            root_lower = root.lower()
+            
+            # Skip processing if "skip", "archive", or "habituation" is in the path
+            if any(keyword in root_lower for keyword in ('archive', 'habituation')):
+                logging.info(f"Skipping {root} due to keyword match i.e. 'archive', 'habituation'")
+                continue
+            
+            # Check for .tev files and process if found
+            if any(file.endswith('.tev') for file in files):
+                is_train = 'train' in root_lower
+                logging.info(f"Processing {root}. Is Train: {is_train}")
+                try:
+                    main(root, is_train=is_train, auc_log_path=auc_log_path)
+                    logging.info(f"Processed {root}")
+                except Exception as e:
+                    logging.error(f"Error processing {root}: {e}")
+    except KeyboardInterrupt:
+        logging.warning("Process interrupted by user. Proceeding to generate AUC xlsx.")
+    finally:
+        if generate_auc_xlsx:
+            data_sheets = read_data(auc_log_path)
+            write_to_excel(data_sheets, auc_xlsx_path)
+            logging.info(f"AUC xlsx generated at {auc_xlsx_path}")
 
 if __name__ == "__main__":
     dir_path = input("Enter the directory path: ").strip()
