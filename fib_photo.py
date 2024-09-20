@@ -30,7 +30,7 @@ logging.basicConfig(
 warnings.filterwarnings("ignore")
 
 # Precompile the regex for floating point numbers
-FLOAT_PATTERN = re.compile(r'\d+\.\d+')
+FLOAT_PATTERN = re.compile(r'-?\d+\.\d+')
 
 class Mouse:
     def __init__(self, 
@@ -512,7 +512,7 @@ class Mouse:
         elif 'ltm14d' in filename.lower():
             return 'LTM14d'
         elif 'ltm1' in filename.lower():
-            return 'LTM1'
+            return 'LTM1d'
         return 'Training'
     
     def save_plot(self, fig, output_dir, filename):
@@ -627,7 +627,7 @@ def determine_experiment_type(line: str) -> str:
     elif 'ltm14d' in line_lower:
         return 'LTM14d'
     elif 'ltm1' in line_lower:
-        return 'LTM1'
+        return 'LTM1d'
     return 'Training'
 
 def process_line(line: str) -> tuple:
@@ -647,7 +647,7 @@ def read_data(file_path: str) -> dict:
     Read the data from a file and categorize it into sheets.
     """
     data_sheets = {
-        "LTM1": [],
+        "LTM1d": [],
         "LTM14d": [],
         "LTM28d": [],
         "Training": []
