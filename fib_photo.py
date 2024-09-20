@@ -364,7 +364,9 @@ class Mouse:
         # Plot CS and US onset/offset
         self.plot_stimulus_box(ax, xmin=0, xmax=30, ymin=ymin, ymax=ymax, alpha=0.3, color=cs_highlight_color, 
                         label='CS', offset_bar_color=offset_cs_color)
-        self.plot_stimulus_box(ax, xmin=28, xmax=30, ymin=ymin, ymax=ymax + (0.02 * diff), alpha=0, color=cs_highlight_color, 
+
+        if self.isTrain:
+            self.plot_stimulus_box(ax, xmin=28, xmax=30, ymin=ymin, ymax=ymax + (0.02 * diff), alpha=0, color=cs_highlight_color, 
                         label='US', offset_bar_color=offset_us_color)
 
         # Axis labels and title
