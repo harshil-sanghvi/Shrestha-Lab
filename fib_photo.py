@@ -6,6 +6,7 @@ import tdt
 from scipy.signal import savgol_filter
 from scipy.integrate import trapezoid
 import matplotlib.font_manager as fm
+import matplotlib.patches as mpatches
 from scipy.stats import sem
 import seaborn as sns
 import os
@@ -410,23 +411,32 @@ class Mouse:
         self.log_auc(filename, auc_values_cs)
         
         # Plotting AUC values
-        plt.figure(figsize=(8, 6))
-        index = np.arange(1, num_events + 1)
         bar_width = 0.8
 
-        plt.bar(index, auc_values_cs, bar_width, capsize=5, label='CS', color='#BB1F1F')
+        if self.isTrain:
+            plt.figure(figsize=(8, 6))
+            index = np.arange(1, num_events + 1)
+            plt.bar(index, auc_values_cs, bar_width, capsize=5, label='CS', color='#BB1F1F')
+            plt.xticks(index)
+        else:
+            plt.figure(figsize=(3, 5))
+            # Calculate mean and SEM for CS events
+            avg_auc_values_cs = np.mean(auc_values_cs)
+            avg_std_cs = sem(auc_values_cs)
+            plt.bar([0.5], avg_auc_values_cs, width=bar_width, yerr=avg_std_cs, capsize=5, label='CS', color='#BB1F1F')
+            plt.xticks([0.5], ['1'])
 
-        # Formatting the plot
+        # Common formatting
         plt.xlabel("CS Event")
         plt.ylabel("AUC Values")
-        plt.title("AUC for CS Events")
-        plt.xticks(index)
+        plt.title("AUC for CS Events" if self.isTrain else "AUC with SEM - LTM")
         plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
-
         plt.tight_layout()
 
+        # Save the plot
         self.save_plot(plt, 'AUC Plots', filename)
         print('########## Saved AUC ##########')
+
         return auc_values_cs, std_cs
 
     def plot_heat_map(self, size_x, size_y, filename, title, ylabel=""):
