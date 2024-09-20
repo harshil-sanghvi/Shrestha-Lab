@@ -579,7 +579,10 @@ class Mouse:
         zscore_fig, zscore_ax = self.plot_zscore_trace(prop)
         ymin, ymax = min(self.zScore) - 2, max(self.zScore) + 2
         self.plot_stimulus(self.CSon, self.CSoff, ymin, ymax, zscore_ax, alpha=0.3, highlight_color='#FBF887', label="CS", offset_color='#BB1F1F')
-        self.plot_stimulus(self.CSoff - 2, self.CSoff, ymin, ymax + 1, zscore_ax, alpha=0, highlight_color=None, label="US", offset_color='#040404')
+        
+        if self.isTrain:
+            self.plot_stimulus(self.CSoff - 2, self.CSoff, ymin, ymax + 1, zscore_ax, alpha=0, highlight_color=None, label="US", offset_color='#040404')
+        
         zscore_ax.legend(loc='upper left', fontsize=8, bbox_to_anchor=(0, 1.2), ncol=2)
         zscore_ax.grid(False)
         self.save_plot(zscore_fig, 'Zscores', filename)
