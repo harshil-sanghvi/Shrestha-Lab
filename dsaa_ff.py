@@ -76,8 +76,8 @@ class FreezeFrame:
         ct = subfolder.split()[-2] # extract the CT from the subfolder name
         writer = ExcelWriter(output_path) # create an ExcelWriter object
         for file in os.listdir(os.path.join(self.folder_path, subfolder)): # for each file in the subfolder
-            sheet_name = file.split('\\')[-1].split('.')[-2].split('_')[-1] # extract the sheet name
             if file.endswith('.csv'): # if the file is a CSV file
+                sheet_name = file.split('\\')[-1].split('.')[-2].split('_')[-1] # extract the sheet name
                 if 'SAA' not in sheet_name and 'LTM' not in sheet_name: # if the sheet name does not contain 'CT' or 'LTM'
                     print('\nSkipping:', sheet_name)
                     continue
