@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import re
 import pandas as pd
+import shutil
 from tqdm import tqdm
 from scipy.signal import butter, filtfilt
 from scipy.optimize import curve_fit
@@ -41,7 +42,8 @@ class Mouse:
                  signal: str = "_465A", 
                  control: str = "_405A", 
                  isReins: bool = False,
-                 aucLogPath: str = 'auc.txt'):
+                 aucLogPath: str = 'auc.txt',
+                 peth_excel_output_dir: str = 'PETH Data Excel'):
         """
         A class for representing mouse data and performing analysis.
 
@@ -97,6 +99,7 @@ class Mouse:
         self.isTrain = isTrain
         self.isReins = isReins
         self.aucLogPath = aucLogPath
+        self.peth_excel_output_dir = peth_excel_output_dir
         
         # Initialize data-related attributes to None
         self.t1 = None
@@ -344,7 +347,7 @@ class Mouse:
         ax.fill_between([xmin, xmax], ymin, ymax, color=color, alpha=alpha)
         ax.plot([xmin, xmax], [ymax, ymax], color=offset_bar_color, linewidth=2, label=label)
 
-    def get_and_plot_PETH(self, filename, size_x=8, size_y=6):
+    def get_and_plot_PETH(self, filename, size_x=8, size_y=6, save_only_excel=False):
         # Colors
         offset_cs_color = '#BB1F1F'
         offset_us_color = '#040404'
@@ -363,6 +366,17 @@ class Mouse:
 
         # Create figure and axis
         fig, ax = plt.subplots(figsize=(size_x, size_y))
+
+        animal_id = filename.split('_')[0].split('-')[0]
+        experiment_name = self.determine_experiment_name(filename)
+
+        if save_only_excel:
+            df = pd.DataFrame({'x': peri_time_temp, 'Mean': mean_dFF_snips, 'SEM': sem_dFF_snips})
+            excel_path = f'{self.peth_excel_output_dir}/{animal_id}_{experiment_name}_PETH.xlsx'
+            df.to_excel(excel_path, index=False)
+            
+            logging.info(f"########## Saved PETH Excel: {excel_path} ##########")
+            return
 
         # Plot mean response and SEM
         self.plot_mean_response(ax, peri_time_temp, mean_dFF_snips, sem_dFF_snips, mean_band_color)
@@ -588,13 +602,13 @@ class Mouse:
         self.save_plot(zscore_fig, 'Zscores', filename)
         print('########## Saved Z-score ##########')
 
-    def start_analysis(self, filename, plot_heatmap=True, plot_auc=True, plot_peth=True, plot_dff_and_zscore=True):
+    def start_analysis(self, filename, plot_heatmap=True, plot_auc=True, plot_peth=True, plot_dff_and_zscore=True, save_only_peth_excel=False):
         print('\n********** Starting Analysis **********\n')
         
         if plot_auc:
             self.get_and_plot_AUC(filename)
         if plot_peth:
-            self.get_and_plot_PETH(filename)
+            self.get_and_plot_PETH(filename, save_only_excel=save_only_peth_excel)
         if plot_heatmap:
             self.plot_heat_map(8, 4, filename, title = "", ylabel="")
         if plot_dff_and_zscore:
@@ -603,7 +617,7 @@ class Mouse:
 
         print('\n********** Analysis Completed **********\n')
 
-def main(block_path, is_train=True, pre_time=1, post_time=60, auc_log_path='auc.txt'):
+def main(block_path, is_train=True, pre_time=1, post_time=60, auc_log_path='auc.txt', peth_excel_output_dir='PETH Data Excel'):
     """
     Initialize mouse data processing and start analysis.
 
@@ -617,8 +631,8 @@ def main(block_path, is_train=True, pre_time=1, post_time=60, auc_log_path='auc.
     print(f'\n\n######## Initializing Mouse {mousename} ########')
 
     # Create Mouse instance and start analysis
-    mouse = Mouse(block_path, isTrain=is_train, PRE_TIME=pre_time, POST_TIME=post_time, aucLogPath=auc_log_path)
-    mouse.start_analysis(mousename)
+    mouse = Mouse(block_path, isTrain=is_train, PRE_TIME=pre_time, POST_TIME=post_time, aucLogPath=auc_log_path, peth_excel_output_dir=peth_excel_output_dir)
+    mouse.start_analysis(mousename, plot_heatmap=False, plot_auc=False, plot_peth=True, plot_dff_and_zscore=False, save_only_peth_excel=True)
 
 def determine_experiment_type(line: str) -> str:
     """
@@ -690,14 +704,18 @@ def write_to_excel(data_sheets: dict, output_path: str):
                 df.to_excel(writer, sheet_name=sheet_name, index=False)
     logging.info(f"Excel file created successfully at {output_path}")
 
-def process_directory(dir_path, generate_auc_xlsx=True):
+def process_directory(dir_path, generate_auc_xlsx=True, peth_excel_output_dir='PETH Data Excel'):
     auc_log_path = os.path.join(os.getcwd(), 'auc.txt')
     auc_xlsx_path = os.path.join(os.getcwd(), 'auc.xlsx')
 
     # delete the file if it already exists to avoid appending data
     if os.path.exists(auc_log_path):
         os.remove(auc_log_path)
-
+    
+    if os.path.exists(peth_excel_output_dir):
+        shutil.rmtree(peth_excel_output_dir)  # Remove the directory if it exists
+    os.makedirs(peth_excel_output_dir)  # Recreate the directory
+    
     try:
         for root, _, files in os.walk(dir_path):
             root_lower = root.lower()
@@ -712,7 +730,7 @@ def process_directory(dir_path, generate_auc_xlsx=True):
                 is_train = 'train' in root_lower
                 logging.info(f"Processing {root}. Is Train: {is_train}")
                 try:
-                    main(root, is_train=is_train, auc_log_path=auc_log_path)
+                    main(root, is_train=is_train, auc_log_path=auc_log_path, peth_excel_output_dir=peth_excel_output_dir)
                     logging.info(f"Processed {root}")
                 except Exception as e:
                     logging.error(f"Error processing {root}: {e}")
@@ -727,6 +745,6 @@ def process_directory(dir_path, generate_auc_xlsx=True):
 if __name__ == "__main__":
     dir_path = input("Enter the directory path: ").strip()
     if os.path.isdir(dir_path):
-        process_directory(dir_path)
+        process_directory(dir_path, generate_auc_xlsx=False)
     else:
         print("The provided path is not a valid directory.")
