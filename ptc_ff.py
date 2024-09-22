@@ -100,7 +100,7 @@ class FreezeFrame:
         for file in os.listdir(os.path.join(self.folder_path, subfolder)): # for each file in the subfolder
             if not file.endswith('.csv'):
                 continue
-            sheet_name = file.split('\\')[-1].split('.')[-2] # extract the sheet name
+            sheet_name = file.split(os.sep)[-1].split('.')[-2] # extract the sheet name
             if file.endswith('.csv'): # if the file is a CSV file
                 file_path = os.path.join(self.folder_path, subfolder, file) # set the file path
                 data = self.process_file(file_path, sheet_name) # process the FreezeFrame data
