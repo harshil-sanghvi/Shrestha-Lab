@@ -18,6 +18,7 @@ class FreezeFrame:
         self.output_path = output_path
         self.training_timestamps, self.ltm_timestamps = None, None
         self.output = self.output_path
+        self.experiment_name = None
         
     def get_cols(self, experiment):
         '''Function to get the column names for the given experiment.'''
@@ -124,6 +125,7 @@ class FreezeFrame:
         '''Function to process the FreezeFrame data for each file.'''
         ff_df = pd.read_csv(file_path, header=1) # read the CSV file
         ff_df.columns = self.clean_columns(list(ff_df.columns)) # clean the column names
+        self.experiment_name = experiment_name.split('_')[-1].lower() # extract the experiment name
         if 'LTM' in experiment_name: # if the experiment is LTM
             return self.process_ltm(ff_df) # process the FreezeFrame data for LTM
         return self.process_training(ff_df) # process the FreezeFrame data for training
