@@ -181,7 +181,8 @@ class FreezeFrame:
             if e.args[0].startswith("cannot convert the series to "):
                 print(f'Multiple values for {animal_id}')
             elif e.args[0].startswith("cannot do slice indexing"):
-                print(f'No values for {animal_id} for timestamp value {e.args[0].split()[-4]}')
+                timestamp = int(e.args[0].split()[-4][1:-1])
+                print(f'No values for {animal_id} for timestamp value {timestamp} in {self.experiment_name}')
             else:
                 print(f'Error for {animal_id} in {start} to {end} -> {e}')
             return 0
